@@ -1,2 +1,2 @@
-# escomplex-plugin-module-metrics
+# escomplex-plugin-metrics-module
 Provides the core module metric / report generation for ESComplex.
