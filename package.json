@@ -22,11 +22,9 @@
     "escomplex-core-commons": "git+https://git@github.com/typhonjs-node-escomplex/escomplex-core-commons.git"
   },
   "devDependencies": {
-    "babel-plugin-add-module-exports": "^0.2.0",
-    "babel-plugin-module-alias": "^1.0.0",
     "typhonjs-ast-walker": "git+https://git@github.com/typhonjs-node-ast/typhonjs-ast-walker.git",
     "typhonjs-config-eslint": "^0.4.0",
-    "typhonjs-npm-build-test": "^0.1.0"
+    "typhonjs-npm-build-test": "^0.2.0"
   },
   "scripts": {
     "build": "babel-node ./node_modules/typhonjs-npm-scripts-build-babel/scripts/build.js",
