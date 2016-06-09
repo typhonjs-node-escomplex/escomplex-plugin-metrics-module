@@ -26,6 +26,17 @@ var PluginMetricsModule = function () {
    }
 
    _createClass(PluginMetricsModule, [{
+      key: 'onConfigure',
+
+      /**
+       * Loads any default settings that are not already provided by any user options.
+       *
+       * @param {object}   ev - escomplex plugin event data.
+       */
+      value: function onConfigure(ev) {
+         ev.data.settings.newmi = typeof ev.data.options.newmi === 'boolean' ? ev.data.options.newmi : false;
+      }
+   }, {
       key: 'onEnterNode',
       value: function onEnterNode(ev) {
          var syntax = this.syntaxes[ev.data.node.type];

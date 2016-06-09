@@ -7,6 +7,16 @@ import safeName   from 'escomplex-core-commons/src/traits/safeName.js';
  */
 export default class PluginMetricsModule
 {
+   /**
+    * Loads any default settings that are not already provided by any user options.
+    *
+    * @param {object}   ev - escomplex plugin event data.
+    */
+   onConfigure(ev)
+   {
+      ev.data.settings.newmi = typeof ev.data.options.newmi === 'boolean' ? ev.data.options.newmi : false;
+   }
+
    onEnterNode(ev)
    {
       const syntax = this.syntaxes[ev.data.node.type];
