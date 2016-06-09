@@ -38,11 +38,9 @@ export default class PluginMetricsModule
       if (syntax !== null && typeof syntax === 'object' && syntax.newScope) { this.popScope(); }
    }
 
-   onModuleEnd(ev)
+   onModuleEnd()
    {
       this.calculateMetrics(this.settings);
-
-      ev.data.report = this.report;
    }
 
    onModuleStart(ev)
@@ -53,7 +51,11 @@ export default class PluginMetricsModule
       this.clearDependencies = true;
       this.scopeStack = [];
 
-      this.report = this.createReport(ev.data.ast.loc);
+      this.report = ev.data.report;
+
+      this.report.aggregate = this.createFunctionReport(undefined, ev.data.ast.loc, 0);
+      this.report.functions = [];
+      this.report.dependencies = [];
    }
 
    processNode(node, parent, syntax)

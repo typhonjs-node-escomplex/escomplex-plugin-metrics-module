@@ -62,10 +62,8 @@ var PluginMetricsModule = function () {
       }
    }, {
       key: 'onModuleEnd',
-      value: function onModuleEnd(ev) {
+      value: function onModuleEnd() {
          this.calculateMetrics(this.settings);
-
-         ev.data.report = this.report;
       }
    }, {
       key: 'onModuleStart',
@@ -76,7 +74,11 @@ var PluginMetricsModule = function () {
          this.clearDependencies = true;
          this.scopeStack = [];
 
-         this.report = this.createReport(ev.data.ast.loc);
+         this.report = ev.data.report;
+
+         this.report.aggregate = this.createFunctionReport(undefined, ev.data.ast.loc, 0);
+         this.report.functions = [];
+         this.report.dependencies = [];
       }
    }, {
       key: 'processNode',
