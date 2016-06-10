@@ -1,6 +1,6 @@
 'use strict';
 
-import safeName   from 'escomplex-core-commons/src/traits/safeName.js';
+import safeName   from 'typhonjs-escomplex-commons/src/traits/safeName.js';
 
 /**
  * Provides default escomplex metrics gathering and calculation.
