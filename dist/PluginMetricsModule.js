@@ -17,7 +17,10 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 /**
- * Provides default escomplex metrics gathering and calculation.
+ * Provides an typhonjs-escomplex-module / ESComplexModule plugin which gathers and calculates all default metrics.
+ *
+ * @see https://www.npmjs.com/package/typhonjs-escomplex-commons
+ * @see https://www.npmjs.com/package/typhonjs-escomplex-module
  */
 
 var PluginMetricsModule = function () {
@@ -28,14 +31,30 @@ var PluginMetricsModule = function () {
    _createClass(PluginMetricsModule, [{
       key: 'onConfigure',
 
+      // ESComplexModule plugin callbacks ------------------------------------------------------------------------------
+
       /**
        * Loads any default settings that are not already provided by any user options.
        *
        * @param {object}   ev - escomplex plugin event data.
+       *
+       * The following options are:
+       * ```
+       * (boolean)   newmi - Boolean indicating whether the maintainability index should be rebased on a scale from
+       *                     0 to 100; defaults to false.
+       * ```
        */
       value: function onConfigure(ev) {
          ev.data.settings.newmi = typeof ev.data.options.newmi === 'boolean' ? ev.data.options.newmi : false;
       }
+
+      /**
+       * During AST traversal when a node is entered it is processed immediately if the node type corresponds to a
+       * loaded trait syntax. Any new report scopes are handled in `onEnterNode`.
+       *
+       * @param {object}   ev - escomplex plugin event data.
+       */
+
    }, {
       key: 'onEnterNode',
       value: function onEnterNode(ev) {
@@ -51,6 +70,14 @@ var PluginMetricsModule = function () {
             ev.data.ignoreKeys = syntax.ignoreKeys;
          }
       }
+
+      /**
+       * During AST traversal when a node is exited it is processed immediately if the node type corresponds to a
+       * loaded trait syntax. If a node has a new report scope it is popped in `onExitNode`.
+       *
+       * @param {object}   ev - escomplex plugin event data.
+       */
+
    }, {
       key: 'onExitNode',
       value: function onExitNode(ev) {
@@ -60,11 +87,23 @@ var PluginMetricsModule = function () {
             this.popScope();
          }
       }
+
+      /**
+       * Performs final calculations based on collected report data.
+       */
+
    }, {
       key: 'onModuleEnd',
       value: function onModuleEnd() {
-         this.calculateMetrics(this.settings);
+         this.calculateMetrics();
       }
+
+      /**
+       * Stores settings and syntaxes, initializes local variables and creates the initial aggregate report.
+       *
+       * @param {object}   ev - escomplex plugin event data.
+       */
+
    }, {
       key: 'onModuleStart',
       value: function onModuleStart(ev) {
@@ -76,57 +115,131 @@ var PluginMetricsModule = function () {
 
          this.report = ev.data.report;
 
+         // Creates the default report
          this.report.aggregate = this.createFunctionReport(undefined, ev.data.ast.loc, 0);
          this.report.functions = [];
          this.report.dependencies = [];
       }
-   }, {
-      key: 'processNode',
-      value: function processNode(node, parent, syntax) {
-         this.processLloc(node, syntax, this.currentReport);
-         this.processCyclomatic(node, syntax, this.currentReport);
-         this.processOperators(node, parent, syntax, this.currentReport);
-         this.processOperands(node, parent, syntax, this.currentReport);
 
-         if (this.processDependencies(node, syntax, this.clearDependencies)) {
-            // HACK: This will fail with async or if other syntax than CallExpression introduces dependencies.
-            // TODO: Come up with a less crude approach.
-            this.clearDependencies = false;
-         }
+      // Module metrics calculation ------------------------------------------------------------------------------------
+
+      /**
+       * Calculates cyclomatic density - Proposed as a modification to cyclomatic complexity by Geoffrey K. Gill and
+       * Chris F. Kemerer in 1991, this metric simply re-expresses it as a percentage of the logical lines of code. Lower
+       * is better.
+       *
+       * @param {object}   data -
+       */
+
+   }, {
+      key: 'calculateCyclomaticDensity',
+      value: function calculateCyclomaticDensity(data) {
+         data.cyclomaticDensity = data.cyclomatic / data.sloc.logical * 100;
       }
+
+      /**
+       * Calculates Halstead metrics. In 1977, Maurice Halstead developed a set of metrics which are calculated based on
+       * the number of distinct operators, the number of distinct operands, the total number of operators and the total
+       * number of operands in each function. This site picks out three Halstead measures in particular: difficulty,
+       * volume and effort.
+       *
+       * @param {object}   data -
+       *
+       * @see https://en.wikipedia.org/wiki/Halstead_complexity_measures
+       */
+
    }, {
-      key: 'createScope',
-      value: function createScope(node, parent) {
-         // ESTree has a parent node which defines the method name with a child FunctionExpression / FunctionDeclaration.
-         // Babylon AST only has ClassMethod with a child `key` providing the method name.
-         var name = parent && parent.type === 'MethodDefinition' ? (0, _safeName2.default)(parent.key) : (0, _safeName2.default)(node.id || node.key);
+      key: 'calculateHalsteadMetrics',
+      value: function calculateHalsteadMetrics(data) {
+         data.length = data.operators.total + data.operands.total;
 
-         this.currentReport = this.createFunctionReport(name, node.loc, node.params.length);
-
-         this.report.functions.push(this.currentReport);
-         this.report.aggregate.params += node.params.length;
-
-         this.scopeStack.push(this.currentReport);
-      }
-   }, {
-      key: 'popScope',
-      value: function popScope() {
-         this.scopeStack.pop();
-
-         if (this.scopeStack.length > 0) {
-            this.currentReport = this.scopeStack[this.scopeStack.length - 1];
+         if (data.length === 0) {
+            data.vocabulary = data.difficulty = data.volume = data.effort = data.bugs = data.time = 0;
          } else {
-            this.currentReport = undefined;
+            data.vocabulary = data.operators.distinct + data.operands.distinct;
+            data.difficulty = data.operators.distinct / 2 * (data.operands.distinct === 0 ? 1 : data.operands.total / data.operands.distinct);
+            data.volume = data.length * (Math.log(data.vocabulary) / Math.log(2));
+            data.effort = data.difficulty * data.volume;
+            data.bugs = data.volume / 3000;
+            data.time = data.effort / 18;
+         }
+      }
+
+      /**
+       * Designed in 1991 by Paul Oman and Jack Hagemeister at the University of Idaho, this metric is calculated at the
+       * whole program or module level from averages of the other 3 metrics, using the following formula:
+       * ```
+       * 171 -
+       * (3.42 * ln(mean effort)) -
+       * (0.23 * ln(mean cyclomatic complexity)) -
+       * (16.2 * ln(mean logical LOC))
+       * ```
+       * Values are on a logarithmic scale ranging from negative infinity up to 171, with greater numbers indicating a
+       * higher level of maintainability. In their original paper, Oman and Hagemeister identified 65 as the threshold
+       * value below which a program should be considered difficult to maintain.
+       *
+       * @param {number}   averageEffort -
+       * @param {number}   averageCyclomatic -
+       * @param {number}   averageLoc -
+       */
+
+   }, {
+      key: 'calculateMaintainabilityIndex',
+      value: function calculateMaintainabilityIndex(averageEffort, averageCyclomatic, averageLoc) {
+         if (averageCyclomatic === 0) {
+            throw new Error('Encountered function with cyclomatic complexity zero!');
+         }
+
+         this.report.maintainability = 171 - 3.42 * Math.log(averageEffort) - 0.23 * Math.log(averageCyclomatic) - 16.2 * Math.log(averageLoc);
+
+         if (this.report.maintainability > 171) {
+            this.report.maintainability = 171;
+         }
+
+         if (this.settings.newmi) {
+            this.report.maintainability = Math.max(0, this.report.maintainability * 100 / 171);
          }
       }
    }, {
-      key: 'createReport',
-      value: function createReport(lines) {
-         return {
-            aggregate: this.createFunctionReport(undefined, lines, 0),
-            functions: [],
-            dependencies: []
+      key: 'calculateMetrics',
+      value: function calculateMetrics() {
+         var _this = this;
+
+         var count = this.report.functions.length;
+
+         var indices = {
+            loc: 0,
+            cyclomatic: 1,
+            effort: 2,
+            params: 3
          };
+
+         var sums = [0, 0, 0, 0];
+
+         this.report.functions.forEach(function (functionReport) {
+            _this.calculateCyclomaticDensity(functionReport);
+            _this.calculateHalsteadMetrics(functionReport.halstead);
+            _this.sumMaintainabilityMetrics(sums, indices, functionReport);
+         });
+
+         this.calculateCyclomaticDensity(this.report.aggregate);
+         this.calculateHalsteadMetrics(this.report.aggregate.halstead);
+
+         if (count === 0) {
+            // Sane handling of modules that contain no functions.
+            this.sumMaintainabilityMetrics(sums, indices, this.report.aggregate);
+            count = 1;
+         }
+
+         var averages = sums.map(function (sum) {
+            return sum / count;
+         });
+
+         this.calculateMaintainabilityIndex(averages[indices.effort], averages[indices.cyclomatic], averages[indices.loc]);
+
+         Object.keys(indices).forEach(function (index) {
+            _this.report[index] = averages[indices[index]];
+         });
       }
    }, {
       key: 'createFunctionReport',
@@ -149,26 +262,37 @@ var PluginMetricsModule = function () {
          return result;
       }
    }, {
-      key: 'createInitialHalsteadState',
-      value: function createInitialHalsteadState() {
-         return {
-            operators: this.createInitialHalsteadItemState(),
-            operands: this.createInitialHalsteadItemState()
-         };
-      }
-   }, {
       key: 'createInitialHalsteadItemState',
       value: function createInitialHalsteadItemState() {
-         return {
-            distinct: 0,
-            total: 0,
-            identifiers: []
-         };
+         return { distinct: 0, total: 0, identifiers: [] };
       }
    }, {
-      key: 'processLloc',
-      value: function processLloc(node, syntax, currentReport) {
-         this.incrementCounter(node, syntax, 'lloc', this.incrementLogicalSloc, currentReport);
+      key: 'createInitialHalsteadState',
+      value: function createInitialHalsteadState() {
+         return { operators: this.createInitialHalsteadItemState(), operands: this.createInitialHalsteadItemState() };
+      }
+   }, {
+      key: 'createScope',
+      value: function createScope(node, parent) {
+         // ESTree has a parent node which defines the method name with a child FunctionExpression / FunctionDeclaration.
+         // Babylon AST only has ClassMethod with a child `key` providing the method name.
+         var name = parent && parent.type === 'MethodDefinition' ? (0, _safeName2.default)(parent.key) : (0, _safeName2.default)(node.id || node.key);
+
+         this.currentReport = this.createFunctionReport(name, node.loc, node.params.length);
+
+         this.report.functions.push(this.currentReport);
+         this.report.aggregate.params += node.params.length;
+
+         this.scopeStack.push(this.currentReport);
+      }
+   }, {
+      key: 'halsteadItemEncountered',
+      value: function halsteadItemEncountered(currentReport, metric, identifier) {
+         if (currentReport) {
+            this.incrementHalsteadItems(currentReport, metric, identifier);
+         }
+
+         this.incrementHalsteadItems(this.report.aggregate, metric, identifier);
       }
    }, {
       key: 'incrementCounter',
@@ -182,20 +306,6 @@ var PluginMetricsModule = function () {
          }
       }
    }, {
-      key: 'incrementLogicalSloc',
-      value: function incrementLogicalSloc(currentReport, amount) {
-         this.report.aggregate.sloc.logical += amount;
-
-         if (currentReport) {
-            currentReport.sloc.logical += amount;
-         }
-      }
-   }, {
-      key: 'processCyclomatic',
-      value: function processCyclomatic(node, syntax, currentReport) {
-         this.incrementCounter(node, syntax, 'cyclomatic', this.incrementCyclomatic, currentReport);
-      }
-   }, {
       key: 'incrementCyclomatic',
       value: function incrementCyclomatic(currentReport, amount) {
          this.report.aggregate.cyclomatic += amount;
@@ -203,59 +313,6 @@ var PluginMetricsModule = function () {
          if (currentReport) {
             currentReport.cyclomatic += amount;
          }
-      }
-   }, {
-      key: 'processOperators',
-      value: function processOperators(node, parent, syntax, currentReport) {
-         this.processHalsteadMetric(node, parent, syntax, 'operators', currentReport);
-      }
-   }, {
-      key: 'processOperands',
-      value: function processOperands(node, parent, syntax, currentReport) {
-         this.processHalsteadMetric(node, parent, syntax, 'operands', currentReport);
-      }
-   }, {
-      key: 'processHalsteadMetric',
-      value: function processHalsteadMetric(node, parent, syntax, metric, currentReport) {
-         var _this = this;
-
-         if (Array.isArray(syntax[metric])) {
-            syntax[metric].forEach(function (s) {
-               var identifier = void 0;
-
-               if (typeof s.identifier === 'function') {
-                  identifier = s.identifier(node, parent);
-               } else {
-                  identifier = s.identifier;
-               }
-
-               if (typeof identifier !== 'undefined' && (typeof s.filter !== 'function' || s.filter(node) === true)) {
-                  // Handle the case when a node / syntax returns an array of identifiers.
-                  if (Array.isArray(identifier)) {
-                     identifier.forEach(function (element) {
-                        _this.halsteadItemEncountered(currentReport, metric, element);
-                     });
-                  } else {
-                     _this.halsteadItemEncountered(currentReport, metric, identifier);
-                  }
-               }
-            });
-         }
-      }
-   }, {
-      key: 'halsteadItemEncountered',
-      value: function halsteadItemEncountered(currentReport, metric, identifier) {
-         if (currentReport) {
-            this.incrementHalsteadItems(currentReport, metric, identifier);
-         }
-
-         this.incrementHalsteadItems(this.report.aggregate, metric, identifier);
-      }
-   }, {
-      key: 'incrementHalsteadItems',
-      value: function incrementHalsteadItems(baseReport, metric, identifier) {
-         this.incrementDistinctHalsteadItems(baseReport, metric, identifier);
-         this.incrementTotalHalsteadItems(baseReport, metric);
       }
    }, {
       key: 'incrementDistinctHalsteadItems',
@@ -269,14 +326,10 @@ var PluginMetricsModule = function () {
          }
       }
    }, {
-      key: 'isHalsteadMetricDistinct',
-      value: function isHalsteadMetricDistinct(baseReport, metric, identifier) {
-         return baseReport.halstead[metric].identifiers.indexOf(identifier) === -1;
-      }
-   }, {
-      key: 'recordDistinctHalsteadMetric',
-      value: function recordDistinctHalsteadMetric(baseReport, metric, identifier) {
-         baseReport.halstead[metric].identifiers.push(identifier);
+      key: 'incrementHalsteadItems',
+      value: function incrementHalsteadItems(baseReport, metric, identifier) {
+         this.incrementDistinctHalsteadItems(baseReport, metric, identifier);
+         this.incrementTotalHalsteadItems(baseReport, metric);
       }
    }, {
       key: 'incrementHalsteadMetric',
@@ -286,9 +339,39 @@ var PluginMetricsModule = function () {
          }
       }
    }, {
+      key: 'incrementLogicalSloc',
+      value: function incrementLogicalSloc(currentReport, amount) {
+         this.report.aggregate.sloc.logical += amount;
+
+         if (currentReport) {
+            currentReport.sloc.logical += amount;
+         }
+      }
+   }, {
       key: 'incrementTotalHalsteadItems',
       value: function incrementTotalHalsteadItems(baseReport, metric) {
          this.incrementHalsteadMetric(baseReport, metric, 'total');
+      }
+   }, {
+      key: 'isHalsteadMetricDistinct',
+      value: function isHalsteadMetricDistinct(baseReport, metric, identifier) {
+         return baseReport.halstead[metric].identifiers.indexOf(identifier) === -1;
+      }
+   }, {
+      key: 'popScope',
+      value: function popScope() {
+         this.scopeStack.pop();
+
+         if (this.scopeStack.length > 0) {
+            this.currentReport = this.scopeStack[this.scopeStack.length - 1];
+         } else {
+            this.currentReport = undefined;
+         }
+      }
+   }, {
+      key: 'processCyclomatic',
+      value: function processCyclomatic(node, syntax, currentReport) {
+         this.incrementCounter(node, syntax, 'cyclomatic', this.incrementCyclomatic, currentReport);
       }
    }, {
       key: 'processDependencies',
@@ -307,71 +390,66 @@ var PluginMetricsModule = function () {
          return false;
       }
    }, {
-      key: 'calculateMetrics',
-      value: function calculateMetrics(settings) {
+      key: 'processHalsteadMetric',
+      value: function processHalsteadMetric(node, parent, syntax, metric, currentReport) {
          var _this2 = this;
 
-         var count = this.report.functions.length;
+         if (Array.isArray(syntax[metric])) {
+            syntax[metric].forEach(function (s) {
+               var identifier = void 0;
 
-         var indices = {
-            loc: 0,
-            cyclomatic: 1,
-            effort: 2,
-            params: 3
-         };
+               if (typeof s.identifier === 'function') {
+                  identifier = s.identifier(node, parent);
+               } else {
+                  identifier = s.identifier;
+               }
 
-         var sums = [0, 0, 0, 0];
-
-         this.report.functions.forEach(function (functionReport) {
-            _this2.calculateCyclomaticDensity(functionReport);
-            _this2.calculateHalsteadMetrics(functionReport.halstead);
-            _this2.sumMaintainabilityMetrics(sums, indices, functionReport);
-         });
-
-         this.calculateCyclomaticDensity(this.report.aggregate);
-         this.calculateHalsteadMetrics(this.report.aggregate.halstead);
-
-         if (count === 0) {
-            // Sane handling of modules that contain no functions.
-            this.sumMaintainabilityMetrics(sums, indices, this.report.aggregate);
-            count = 1;
-         }
-
-         var averages = sums.map(function (sum) {
-            return sum / count;
-         });
-
-         this.calculateMaintainabilityIndex(averages[indices.effort], averages[indices.cyclomatic], averages[indices.loc], settings);
-
-         Object.keys(indices).forEach(function (index) {
-            _this2.report[index] = averages[indices[index]];
-         });
-      }
-   }, {
-      key: 'calculateCyclomaticDensity',
-      value: function calculateCyclomaticDensity(data) {
-         data.cyclomaticDensity = data.cyclomatic / data.sloc.logical * 100;
-      }
-   }, {
-      key: 'calculateHalsteadMetrics',
-      value: function calculateHalsteadMetrics(data) {
-         data.length = data.operators.total + data.operands.total;
-
-         if (data.length === 0) {
-            this.nilHalsteadMetrics(data);
-         } else {
-            data.vocabulary = data.operators.distinct + data.operands.distinct;
-            data.difficulty = data.operators.distinct / 2 * (data.operands.distinct === 0 ? 1 : data.operands.total / data.operands.distinct);
-            data.volume = data.length * (Math.log(data.vocabulary) / Math.log(2));
-            data.effort = data.difficulty * data.volume;
-            data.bugs = data.volume / 3000;
-            data.time = data.effort / 18;
+               if (typeof identifier !== 'undefined' && (typeof s.filter !== 'function' || s.filter(node) === true)) {
+                  // Handle the case when a node / syntax returns an array of identifiers.
+                  if (Array.isArray(identifier)) {
+                     identifier.forEach(function (element) {
+                        _this2.halsteadItemEncountered(currentReport, metric, element);
+                     });
+                  } else {
+                     _this2.halsteadItemEncountered(currentReport, metric, identifier);
+                  }
+               }
+            });
          }
       }
    }, {
-      key: 'nilHalsteadMetrics',
-      value: function nilHalsteadMetrics(data) {
-         data.vocabulary = data.difficulty = data.volume = data.effort = data.bugs = data.time = 0;
+      key: 'processLloc',
+      value: function processLloc(node, syntax, currentReport) {
+         this.incrementCounter(node, syntax, 'lloc', this.incrementLogicalSloc, currentReport);
+      }
+   }, {
+      key: 'processNode',
+      value: function processNode(node, parent, syntax) {
+         this.processLloc(node, syntax, this.currentReport);
+         this.processCyclomatic(node, syntax, this.currentReport);
+         this.processOperators(node, parent, syntax, this.currentReport);
+         this.processOperands(node, parent, syntax, this.currentReport);
+
+         if (this.processDependencies(node, syntax, this.clearDependencies)) {
+            // HACK: This will fail with async or if other syntax than CallExpression introduces dependencies.
+            // TODO: Come up with a less crude approach.
+            this.clearDependencies = false;
+         }
+      }
+   }, {
+      key: 'processOperands',
+      value: function processOperands(node, parent, syntax, currentReport) {
+         this.processHalsteadMetric(node, parent, syntax, 'operands', currentReport);
+      }
+   }, {
+      key: 'processOperators',
+      value: function processOperators(node, parent, syntax, currentReport) {
+         this.processHalsteadMetric(node, parent, syntax, 'operators', currentReport);
+      }
+   }, {
+      key: 'recordDistinctHalsteadMetric',
+      value: function recordDistinctHalsteadMetric(baseReport, metric, identifier) {
+         baseReport.halstead[metric].identifiers.push(identifier);
       }
    }, {
       key: 'sumMaintainabilityMetrics',
@@ -380,23 +458,6 @@ var PluginMetricsModule = function () {
          sums[indices.cyclomatic] += data.cyclomatic;
          sums[indices.effort] += data.halstead.effort;
          sums[indices.params] += data.params;
-      }
-   }, {
-      key: 'calculateMaintainabilityIndex',
-      value: function calculateMaintainabilityIndex(averageEffort, averageCyclomatic, averageLoc, settings) {
-         if (averageCyclomatic === 0) {
-            throw new Error('Encountered function with cyclomatic complexity zero!');
-         }
-
-         this.report.maintainability = 171 - 3.42 * Math.log(averageEffort) - 0.23 * Math.log(averageCyclomatic) - 16.2 * Math.log(averageLoc);
-
-         if (this.report.maintainability > 171) {
-            this.report.maintainability = 171;
-         }
-
-         if (settings.newmi) {
-            this.report.maintainability = Math.max(0, this.report.maintainability * 100 / 171);
-         }
       }
    }]);
 
