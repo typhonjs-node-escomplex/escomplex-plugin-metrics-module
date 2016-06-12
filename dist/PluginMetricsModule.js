@@ -200,6 +200,11 @@ var PluginMetricsModule = function () {
             this.report.maintainability = Math.max(0, this.report.maintainability * 100 / 171);
          }
       }
+
+      /**
+       * Coordinates calculating all metrics.
+       */
+
    }, {
       key: 'calculateMetrics',
       value: function calculateMetrics() {
@@ -241,6 +246,17 @@ var PluginMetricsModule = function () {
             _this.report[index] = averages[indices[index]];
          });
       }
+
+      /**
+       * Creates a new function report.
+       *
+       * @param {string}   name - Name of the function.
+       * @param {number}   lines - Number of lines for the function.
+       * @param {number}   params - Number of parameters for function.
+       *
+       * @returns {object}
+       */
+
    }, {
       key: 'createFunctionReport',
       value: function createFunctionReport(name, lines, params) {
@@ -261,16 +277,29 @@ var PluginMetricsModule = function () {
 
          return result;
       }
-   }, {
-      key: 'createInitialHalsteadItemState',
-      value: function createInitialHalsteadItemState() {
-         return { distinct: 0, total: 0, identifiers: [] };
-      }
+
+      /**
+       * Creates an object hash representing Halstead state.
+       *
+       * @returns {{operators: {distinct: number, total: number, identifiers: Array}, operands: {distinct: number, total: number, identifiers: Array}}}
+       */
+
    }, {
       key: 'createInitialHalsteadState',
       value: function createInitialHalsteadState() {
-         return { operators: this.createInitialHalsteadItemState(), operands: this.createInitialHalsteadItemState() };
+         return {
+            operators: { distinct: 0, total: 0, identifiers: [] },
+            operands: { distinct: 0, total: 0, identifiers: [] }
+         };
       }
+
+      /**
+       * Creates a report scope when a class or function is entered.
+       *
+       * @param {object}   node - Current AST node.
+       * @param {object}   parent - Parent AST node.
+       */
+
    }, {
       key: 'createScope',
       value: function createScope(node, parent) {
