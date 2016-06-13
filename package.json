@@ -20,9 +20,10 @@
     }
   ],
   "dependencies": {
-    "typhonjs-escomplex-commons": "git+https://git@github.com/typhonjs-node-escomplex/typhonjs-escomplex-commons.git"
+    "typhonjs-escomplex-commons": "^0.0.1"
   },
   "devDependencies": {
+    "escomplex-plugin-syntax-babylon": "^0.0.1",
     "typhonjs-ast-walker": "^0.1.0",
     "typhonjs-config-eslint": "^0.4.0",
     "typhonjs-npm-build-test": "^0.3.0"

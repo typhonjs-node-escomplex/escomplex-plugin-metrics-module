@@ -1,20 +1,15 @@
 'use strict';
-/*
 import { assert }          from 'chai';
 import fs                  from 'fs';
+
+import PluginSyntaxBabylon from 'escomplex-plugin-syntax-babylon';
 import walker              from 'typhonjs-ast-walker';
 
-const s_PLUGIN_PATH =      '../../dist/PluginSyntaxESTree';
-
-suite('NPM require plugin:', () =>
-{
-   test('require does not throw', () => { assert.doesNotThrow(() => { require(s_PLUGIN_PATH); }); });
-});
+import PluginMetricsModule from '../../src/PluginMetricsModule.js';
 
 const pluginData =
 [
-   { name: 'ESM', PluginClass: PluginSyntaxESTree },
-   { name: 'NPM', PluginClass: require(s_PLUGIN_PATH) }
+   { name: 'ESM', PluginClass: PluginMetricsModule }
 ];
 
 pluginData.forEach((plugin) =>
@@ -30,9 +25,29 @@ pluginData.forEach((plugin) =>
             assert.isObject(instance);
          });
 
-         test('plugin function is exported', () =>
+         test('plugin function onConfigure is exported', () =>
          {
-            assert.isFunction(instance.onLoadSyntax);
+            assert.isFunction(instance.onConfigure);
+         });
+
+         test('plugin function onEnterNode is exported', () =>
+         {
+            assert.isFunction(instance.onEnterNode);
+         });
+
+         test('plugin function onExitNode is exported', () =>
+         {
+            assert.isFunction(instance.onExitNode);
+         });
+
+         test('plugin function onModuleEnd is exported', () =>
+         {
+            assert.isFunction(instance.onModuleEnd);
+         });
+
+         test('plugin function onModuleStart is exported', () =>
+         {
+            assert.isFunction(instance.onModuleStart);
          });
       });
 
@@ -42,89 +57,65 @@ pluginData.forEach((plugin) =>
 
          test('plugin throws on empty event data', () =>
          {
-            assert.throws(() => { instance.onLoadSyntax(); });
+            assert.throws(() => { instance.onConfigure(); });
          });
 
          test('plugin does not throw on proper event data', () =>
          {
-            assert.doesNotThrow(() => { instance.onLoadSyntax({ data: { settings: {} } }); });
+            assert.doesNotThrow(() => { instance.onConfigure({ data: { options: {}, settings: {} } }); });
          });
 
          test('plugin passes back syntax data', () =>
          {
-            const event = { data: { settings: {} } };
-            instance.onLoadSyntax(event);
-            assert.isObject(event.data.syntaxes);
-         });
-
-         test('plugin has correct syntax data length', () =>
-         {
-            const event = { data: { settings: {} } };
-            instance.onLoadSyntax(event);
-            assert.strictEqual(Object.keys(event.data.syntaxes).length, 63);
-         });
-
-         test('plugin has correct syntax properties', () =>
-         {
-            const event = { data: { settings: {} } };
-            instance.onLoadSyntax(event);
-
-            for (const type in event.data.syntaxes)
-            {
-               assert.strictEqual(JSON.stringify(Object.keys(event.data.syntaxes[type])),
-                '["lloc","cyclomatic","operators","operands","ignoreKeys","newScope","dependencies"]');
-            }
+            const event = { data: { options: {}, settings: {} } };
+            instance.onConfigure(event);
+            assert.strictEqual(event.data.settings.newmi, false);
          });
       });
 
-      suite('AST Walker:', () =>
+      suite('module results:', () =>
       {
+         const syntaxInstance = new PluginSyntaxBabylon();
          const instance = new plugin.PluginClass();
-         const verifyResult = JSON.stringify(JSON.parse(fs.readFileSync('./test/fixture/estree-results.json', 'utf8')));
 
-         test('verify espree results', () =>
+         const ast = JSON.parse(fs.readFileSync('./test/fixture/espree-estree.json', 'utf8'));
+         const reportResults = JSON.parse(fs.readFileSync('./test/fixture/report-results.json', 'utf8'));
+
+         /**
+          * Bootstraps the ESComplexModule runtime and fudges traversing the AST with the Babylon trait syntaxes.
+          */
+         test('verify onModuleEnd results', () =>
          {
-            const results = {};
-            const event = { data: { settings: {} } };
-            instance.onLoadSyntax(event);
+            const report = {};
 
-            walker.traverse(JSON.parse(fs.readFileSync('./test/fixture/espree-estree.json', 'utf8')),
+            let event = { data: { options: {}, settings: {} } };
+
+            instance.onConfigure(event);
+            syntaxInstance.onConfigure(event);
+
+            const settings = event.data.settings;
+
+            event = { data: { settings, syntaxes: {} } };
+
+            syntaxInstance.onLoadSyntax(event);
+
+            const syntaxes = event.data.syntaxes;
+
+            event = { data: { ast, report, settings, syntaxes } };
+
+            instance.onModuleStart(event);
+
+            // Completely traverse the provided AST and defer to plugins to process node traversal.
+            walker.traverse(ast,
             {
-               enterNode: (node, parent) =>
-               {
-                  const syntax = event.data.syntaxes[node.type];
-
-                  if (syntax !== null && typeof syntax === 'object')
-                  {
-                     if (typeof results[node.type] === 'undefined') { results[node.type] = {}; }
-
-                     for (const metric in syntax)
-                     {
-                        if (typeof results[node.type][metric] === 'undefined') { results[node.type][metric] = {}; }
-
-                        const value = typeof syntax[metric] === 'function' ? syntax[metric](node, parent) :
-                         syntax[metric];
-
-                        const valueKey = JSON.stringify(value);
-
-                        if (typeof results[node.type][metric][valueKey] === 'undefined')
-                        {
-                           results[node.type][metric][valueKey] = 1;
-                        }
-                        else
-                        {
-                           results[node.type][metric][valueKey]++;
-                        }
-                     }
-
-                     return syntax.ignoreKeys;
-                  }
-               }
+               enterNode: (node, parent) => { return instance.onEnterNode({ data: { node, parent } }); },
+               exitNode: (node, parent) => { instance.onExitNode({ data: { node, parent } }); }
             });
 
-            assert.strictEqual(verifyResult, JSON.stringify(sortObj(results)));
+            instance.onModuleEnd();
+
+            assert.strictEqual(JSON.stringify(report), JSON.stringify(reportResults));
          });
       });
    });
 });
-*/
