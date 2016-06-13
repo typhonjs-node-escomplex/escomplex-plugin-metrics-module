@@ -76,12 +76,40 @@ export default class PluginMetricsModule
     */
    onModuleStart(ev)
    {
+      /**
+       * Stores the settings for all ESComplexModule plugins.
+       * @type {object}
+       */
       this.settings = ev.data.settings;
+
+      /**
+       * Stores the trait syntaxes loaded by other ESComplexModule plugins.
+       * @type {object}
+       */
       this.syntaxes = ev.data.syntaxes;
+
+      /**
+       * Stores the current report being processed.
+       * @type {object}
+       */
       this.currentReport = undefined;
+
+      /**
+       * Used in tracking dependencies.
+       * @type {boolean}
+       */
       this.clearDependencies = true;
+
+      /**
+       * Stores the current report scope stack.
+       * @type {Array}
+       */
       this.scopeStack = [];
 
+      /**
+       * Stores the global report being processed by ESComplexModule.
+       * @type {object}
+       */
       this.report = ev.data.report;
 
       // Creates the default report
@@ -424,6 +452,13 @@ export default class PluginMetricsModule
       this.incrementCounter(node, syntax, 'lloc', this.incrementLogicalSloc, currentReport);
    }
 
+   /**
+    * Controls processing an AST node.
+    *
+    * @param {object}   node - Current AST node.
+    * @param {object}   parent - Parent AST node.
+    * @param {object}   syntax - Syntax trait associated with the give node type.
+    */
    processNode(node, parent, syntax)
    {
       this.processLloc(node, syntax, this.currentReport);
