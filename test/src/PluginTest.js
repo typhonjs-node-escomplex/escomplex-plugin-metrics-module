@@ -5,12 +5,12 @@ import 'babel-polyfill';
 import { assert }          from 'chai';
 import fs                  from 'fs';
 
-import PluginSyntaxBabylon from 'escomplex-plugin-syntax-babylon';
-import ModuleReport        from 'typhonjs-escomplex-commons/src/module/report/ModuleReport.js';
+import PluginSyntaxBabylon from 'escomplex-plugin-syntax-babylon/src/PluginSyntaxBabylon';
+import ModuleReport        from 'typhonjs-escomplex-commons/src/module/report/ModuleReport';
 
-import walker              from 'typhonjs-ast-walker';
+import ASTWalker           from 'typhonjs-ast-walker/src/ASTWalker';
 
-import PluginMetricsModule from '../../src/PluginMetricsModule.js';
+import PluginMetricsModule from '../../src/PluginMetricsModule';
 
 const pluginData =
 [
@@ -111,7 +111,7 @@ pluginData.forEach((plugin) =>
             instance.onModuleStart(event);
 
             // Completely traverse the provided AST and defer to plugins to process node traversal.
-            walker.traverse(ast,
+            new ASTWalker().traverse(ast,
             {
                enterNode: (node, parent) => { return instance.onEnterNode({ data: { report, node, parent } }); },
                exitNode: (node, parent) => { instance.onExitNode({ data: { report, node, parent } }); }
