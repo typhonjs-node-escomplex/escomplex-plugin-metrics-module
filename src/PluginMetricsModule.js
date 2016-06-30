@@ -1,8 +1,8 @@
 'use strict';
 
-import MethodReport  from 'typhonjs-escomplex-commons/src/module/report/MethodReport.js';
+import MethodReport  from 'typhonjs-escomplex-commons/src/module/report/MethodReport';
 
-import safeName      from 'typhonjs-escomplex-commons/src/module/traits/safeName.js';
+import safeName      from 'typhonjs-escomplex-commons/src/module/traits/safeName';
 
 /**
  * Provides a typhonjs-escomplex-module / ESComplexModule plugin which gathers and calculates all default metrics.
