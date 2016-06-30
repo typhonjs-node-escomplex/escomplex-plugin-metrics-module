@@ -1,8 +1,13 @@
 'use strict';
+
+import 'babel-polyfill';
+
 import { assert }          from 'chai';
 import fs                  from 'fs';
 
 import PluginSyntaxBabylon from 'escomplex-plugin-syntax-babylon';
+import ModuleReport        from 'typhonjs-escomplex-commons/src/module/report/ModuleReport.js';
+
 import walker              from 'typhonjs-ast-walker';
 
 import PluginMetricsModule from '../../src/PluginMetricsModule.js';
@@ -86,7 +91,7 @@ pluginData.forEach((plugin) =>
           */
          test('verify onModuleEnd results', () =>
          {
-            const report = {};
+            const report = new ModuleReport(ast.loc.start.line, ast.loc.end.line);
 
             let event = { data: { options: {}, settings: {} } };
 
@@ -108,11 +113,13 @@ pluginData.forEach((plugin) =>
             // Completely traverse the provided AST and defer to plugins to process node traversal.
             walker.traverse(ast,
             {
-               enterNode: (node, parent) => { return instance.onEnterNode({ data: { node, parent } }); },
-               exitNode: (node, parent) => { instance.onExitNode({ data: { node, parent } }); }
+               enterNode: (node, parent) => { return instance.onEnterNode({ data: { report, node, parent } }); },
+               exitNode: (node, parent) => { instance.onExitNode({ data: { report, node, parent } }); }
             });
 
-            instance.onModuleEnd();
+            instance.onModuleEnd({ data: { report } });
+
+            report.finalize();
 
             assert.strictEqual(JSON.stringify(report), JSON.stringify(reportResults));
          });

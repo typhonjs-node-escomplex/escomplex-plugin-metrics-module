@@ -1,9 +1,11 @@
 'use strict';
 
-import safeName   from 'typhonjs-escomplex-commons/src/traits/safeName.js';
+import MethodReport  from 'typhonjs-escomplex-commons/src/module/report/MethodReport.js';
+
+import safeName      from 'typhonjs-escomplex-commons/src/module/traits/safeName.js';
 
 /**
- * Provides an typhonjs-escomplex-module / ESComplexModule plugin which gathers and calculates all default metrics.
+ * Provides a typhonjs-escomplex-module / ESComplexModule plugin which gathers and calculates all default metrics.
  *
  * @see https://www.npmjs.com/package/typhonjs-escomplex-commons
  * @see https://www.npmjs.com/package/typhonjs-escomplex-module
@@ -36,15 +38,59 @@ export default class PluginMetricsModule
     */
    onEnterNode(ev)
    {
-      const syntax = this.syntaxes[ev.data.node.type];
+      const report = ev.data.report;
+      const node = ev.data.node;
+      const parent = ev.data.parent;
+
+      const syntax = this.syntaxes[node.type];
 
       if (syntax !== null && typeof syntax === 'object')
       {
-         this.processNode(ev.data.node, ev.data.parent, syntax);
+         // Process node.
 
-         if (syntax.newScope) { this.createScope(ev.data.node, ev.data.parent); }
+         // Process LLOC.
+         report.incrementLogicalSloc(syntax.lloc.valueOf(node, parent));
 
-         ev.data.ignoreKeys = syntax.ignoreKeys;
+         // Process Cyclomatic.
+         report.incrementCyclomatic(syntax.cyclomatic.valueOf(node, parent));
+
+         // Process operators HalsteadArray.
+         syntax.operators.process(report, node, parent);
+
+         // Process operands HalsteadArray.
+         syntax.operands.process(report, node, parent);
+
+         // Process any dependencies.
+         report.addDependencies(syntax.dependencies.valueOf(node, parent));
+
+         // Handle creating new scope if applicable.
+         if (syntax.newScope)
+         {
+            const newScope = syntax.newScope.valueOf(node, parent);
+
+            switch (newScope)
+            {
+               case 'class':
+                  report.createScope(newScope, safeName(node.id), node.loc.start.line, node.loc.end.line);
+                  break;
+
+               case 'method':
+               {
+                  // ESTree has a parent node which defines the method name with a child FunctionExpression /
+                  // FunctionDeclaration. Babylon AST only has ClassMethod with a child `key` providing the method name.
+                  const name = parent && parent.type === 'MethodDefinition' ? safeName(parent.key) :
+                   safeName(node.id || node.key);
+
+                  const paramCount = node.params.length;
+
+                  report.createScope(newScope, name, node.loc.start.line, node.loc.end.line, paramCount);
+
+                  break;
+               }
+            }
+         }
+
+         ev.data.ignoreKeys = syntax.ignoreKeys.valueOf(node, parent);
       }
    }
 
@@ -56,17 +102,35 @@ export default class PluginMetricsModule
     */
    onExitNode(ev)
    {
-      const syntax = this.syntaxes[ev.data.node.type];
+      const report = ev.data.report;
+      const node = ev.data.node;
+      const parent = ev.data.parent;
+      const syntax = this.syntaxes[node.type];
 
-      if (syntax !== null && typeof syntax === 'object' && syntax.newScope) { this.popScope(); }
+      if (syntax !== null && typeof syntax === 'object' && syntax.newScope)
+      {
+         const newScope = syntax.newScope.valueOf(node, parent);
+
+         switch (newScope)
+         {
+            case 'class':
+               report.popScope(newScope);
+               break;
+            case 'method':
+               report.popScope(newScope);
+               break;
+         }
+      }
    }
 
    /**
     * Performs final calculations based on collected report data.
+    *
+    * @param {object}   ev - escomplex plugin event data.
     */
-   onModuleEnd()
+   onModuleEnd(ev)
    {
-      this.calculateMetrics();
+      this._calculateMetrics(ev.data.report);
    }
 
    /**
@@ -87,35 +151,6 @@ export default class PluginMetricsModule
        * @type {object}
        */
       this.syntaxes = ev.data.syntaxes;
-
-      /**
-       * Stores the current report being processed.
-       * @type {object}
-       */
-      this.currentReport = undefined;
-
-      /**
-       * Used in tracking dependencies.
-       * @type {boolean}
-       */
-      this.clearDependencies = true;
-
-      /**
-       * Stores the current report scope stack.
-       * @type {Array}
-       */
-      this.scopeStack = [];
-
-      /**
-       * Stores the global report being processed by ESComplexModule.
-       * @type {object}
-       */
-      this.report = ev.data.report;
-
-      // Creates the default report
-      this.report.aggregate = this.createFunctionReport(undefined, ev.data.ast.loc, 0);
-      this.report.functions = [];
-      this.report.dependencies = [];
    }
 
    // Module metrics calculation ------------------------------------------------------------------------------------
@@ -125,11 +160,13 @@ export default class PluginMetricsModule
     * Chris F. Kemerer in 1991, this metric simply re-expresses it as a percentage of the logical lines of code. Lower
     * is better.
     *
-    * @param {object}   data -
+    * @param {MethodReport}   report - A MethodReport to perform calculations on.
+    *
+    * @private
     */
-   calculateCyclomaticDensity(data)
+   _calculateCyclomaticDensity(report)
    {
-      data.cyclomaticDensity = (data.cyclomatic / data.sloc.logical) * 100;
+      report.cyclomaticDensity = (report.cyclomatic / report.sloc.logical) * 100;
    }
 
    /**
@@ -138,27 +175,30 @@ export default class PluginMetricsModule
     * number of operands in each function. This site picks out three Halstead measures in particular: difficulty,
     * volume and effort.
     *
-    * @param {object}   data -
+    * @param {HalsteadData}   halstead - A HalsteadData instance to perform calculations on.
     *
     * @see https://en.wikipedia.org/wiki/Halstead_complexity_measures
+    *
+    * @private
     */
-   calculateHalsteadMetrics(data)
+   _calculateHalsteadMetrics(halstead)
    {
-      data.length = data.operators.total + data.operands.total;
+      halstead.length = halstead.operators.total + halstead.operands.total;
 
-      if (data.length === 0)
+      /* istanbul ignore if */
+      if (halstead.length === 0)
       {
-         data.vocabulary = data.difficulty = data.volume = data.effort = data.bugs = data.time = 0;
+         halstead.reset();
       }
       else
       {
-         data.vocabulary = data.operators.distinct + data.operands.distinct;
-         data.difficulty = (data.operators.distinct / 2)
-          * (data.operands.distinct === 0 ? 1 : data.operands.total / data.operands.distinct);
-         data.volume = data.length * (Math.log(data.vocabulary) / Math.log(2));
-         data.effort = data.difficulty * data.volume;
-         data.bugs = data.volume / 3000;
-         data.time = data.effort / 18;
+         halstead.vocabulary = halstead.operators.distinct + halstead.operands.distinct;
+         halstead.difficulty = (halstead.operators.distinct / 2)
+          * (halstead.operands.distinct === 0 ? 1 : halstead.operands.total / halstead.operands.distinct);
+         halstead.volume = halstead.length * (Math.log(halstead.vocabulary) / Math.log(2));
+         halstead.effort = halstead.difficulty * halstead.volume;
+         halstead.bugs = halstead.volume / 3000;
+         halstead.time = halstead.effort / 18;
       }
    }
 
@@ -175,325 +215,108 @@ export default class PluginMetricsModule
     * higher level of maintainability. In their original paper, Oman and Hagemeister identified 65 as the threshold
     * value below which a program should be considered difficult to maintain.
     *
-    * @param {number}   averageEffort -
-    * @param {number}   averageCyclomatic -
-    * @param {number}   averageLoc -
+    * @param {ClassReport|ModuleReport}   report - A ClassReport or ModuleReport to perform calculations on.
+    * @param {number}               averageCyclomatic - Average cyclomatic metric across a ClassReport / ModuleReport.
+    * @param {number}               averageEffort - Average Halstead effort across a ClassReport / ModuleReport.
+    * @param {number}               averageLoc - Average SLOC metric across a ClassReport / ModuleReport.
+    *
+    * @private
     */
-   calculateMaintainabilityIndex(averageEffort, averageCyclomatic, averageLoc)
+   _calculateMaintainabilityIndex(report, averageCyclomatic, averageEffort, averageLoc)
    {
+      /* istanbul ignore if */
       if (averageCyclomatic === 0) { throw new Error('Encountered function with cyclomatic complexity zero!'); }
 
-      this.report.maintainability =
+      report.maintainability =
        171
        - (3.42 * Math.log(averageEffort))
        - (0.23 * Math.log(averageCyclomatic))
        - (16.2 * Math.log(averageLoc));
 
-      if (this.report.maintainability > 171) { this.report.maintainability = 171; }
+      /* istanbul ignore if */
+      if (report.maintainability > 171) { report.maintainability = 171; }
 
-      if (this.settings.newmi) { this.report.maintainability = Math.max(0, (this.report.maintainability * 100) / 171); }
+      /* istanbul ignore if */
+      if (this.settings.newmi) { report.maintainability = Math.max(0, (report.maintainability * 100) / 171); }
    }
 
    /**
-    * Coordinates calculating all metrics.
+    * Coordinates calculating all metrics. All module and class methods are traversed. If there are no module or class
+    * methods respectively the aggregate MethodReport is used for calculations.
+    *
+    * @param {ModuleReport}   report - The ModuleReport being processed.
+    *
+    * @private
     */
-   calculateMetrics()
+   _calculateMetrics(report)
    {
-      let count = this.report.functions.length;
+      let moduleMethodCount = report.methods.length;
 
-      const indices =
+      // Retrieve the maintainability sums array and indices object hash.
+      const { sums, indices } = MethodReport.getMaintainabilityMetrics();
+
+      // Handle module methods.
+      report.methods.forEach((methodReport) =>
       {
-         loc: 0,
-         cyclomatic: 1,
-         effort: 2,
-         params: 3
-      };
+         this._calculateCyclomaticDensity(methodReport);
+         this._calculateHalsteadMetrics(methodReport.halstead);
 
-      const sums = [0, 0, 0, 0];
-
-      this.report.functions.forEach((functionReport) =>
-      {
-         this.calculateCyclomaticDensity(functionReport);
-         this.calculateHalsteadMetrics(functionReport.halstead);
-         this.sumMaintainabilityMetrics(sums, indices, functionReport);
+         methodReport.sumMetrics(sums, indices);
       });
 
-      this.calculateCyclomaticDensity(this.report.aggregate);
-      this.calculateHalsteadMetrics(this.report.aggregate.halstead);
-
-      if (count === 0)
+      // Handle module class reports.
+      report.classes.forEach((classReport) =>
       {
-         // Sane handling of modules that contain no functions.
-         this.sumMaintainabilityMetrics(sums, indices, this.report.aggregate);
-         count = 1;
-      }
+         const { sums: classSums } = MethodReport.getMaintainabilityMetrics();
 
-      const averages = sums.map((sum) => { return sum / count; });
+         let classMethodCount = classReport.methods.length;
+         moduleMethodCount += classMethodCount;
 
-      this.calculateMaintainabilityIndex(averages[indices.effort], averages[indices.cyclomatic], averages[indices.loc]);
-
-      Object.keys(indices).forEach((index) => { this.report[index] = averages[indices[index]]; });
-   }
-
-   /**
-    * Creates a new function report.
-    *
-    * @param {string}   name - Name of the function.
-    * @param {number}   lines - Number of lines for the function.
-    * @param {number}   params - Number of parameters for function.
-    *
-    * @returns {object}
-    */
-   createFunctionReport(name, lines, params)
-   {
-      const result = {
-         name,
-         sloc: {
-            logical: 0
-         },
-         cyclomatic: 1,
-         halstead: this.createInitialHalsteadState(),
-         params
-      };
-
-      if (typeof lines === 'object')
-      {
-         result.line = lines.start.line;
-         result.sloc.physical = lines.end.line - lines.start.line + 1;
-      }
-
-      return result;
-   }
-
-   /**
-    * Creates an object hash representing Halstead state.
-    *
-    * @returns {{operators: {distinct: number, total: number, identifiers: Array}, operands: {distinct: number, total: number, identifiers: Array}}}
-    */
-   createInitialHalsteadState()
-   {
-      return {
-         operators: { distinct: 0, total: 0, identifiers: [] },
-         operands: { distinct: 0, total: 0, identifiers: [] }
-      };
-   }
-
-   /**
-    * Creates a report scope when a class or function is entered.
-    *
-    * @param {object}   node - Current AST node.
-    * @param {object}   parent - Parent AST node.
-    */
-   createScope(node, parent)
-   {
-      // ESTree has a parent node which defines the method name with a child FunctionExpression / FunctionDeclaration.
-      // Babylon AST only has ClassMethod with a child `key` providing the method name.
-      const name = parent && parent.type === 'MethodDefinition' ? safeName(parent.key) : safeName(node.id || node.key);
-
-      this.currentReport = this.createFunctionReport(name, node.loc, node.params.length);
-
-      this.report.functions.push(this.currentReport);
-      this.report.aggregate.params += node.params.length;
-
-      this.scopeStack.push(this.currentReport);
-   }
-
-   halsteadItemEncountered(currentReport, metric, identifier)
-   {
-      if (currentReport) { this.incrementHalsteadItems(currentReport, metric, identifier); }
-
-      this.incrementHalsteadItems(this.report.aggregate, metric, identifier);
-   }
-
-   incrementCounter(node, syntax, name, incrementFn, currentReport)
-   {
-      const amount = syntax[name];
-
-      if (typeof amount === 'number')
-      {
-         incrementFn.call(this, currentReport, amount);
-      }
-      else if (typeof amount === 'function')
-      {
-         incrementFn.call(this, currentReport, amount(node));
-      }
-   }
-
-   incrementCyclomatic(currentReport, amount)
-   {
-      this.report.aggregate.cyclomatic += amount;
-
-      if (currentReport)
-      {
-         currentReport.cyclomatic += amount;
-      }
-   }
-
-   incrementDistinctHalsteadItems(baseReport, metric, identifier)
-   {
-      if (Object.prototype.hasOwnProperty(identifier))
-      {
-         // Avoid clashes with built-in property names.
-         this.incrementDistinctHalsteadItems(baseReport, metric, `_${identifier}`);
-      }
-      else if (this.isHalsteadMetricDistinct(baseReport, metric, identifier))
-      {
-         this.recordDistinctHalsteadMetric(baseReport, metric, identifier);
-         this.incrementHalsteadMetric(baseReport, metric, 'distinct');
-      }
-   }
-
-   incrementHalsteadItems(baseReport, metric, identifier)
-   {
-      this.incrementDistinctHalsteadItems(baseReport, metric, identifier);
-      this.incrementTotalHalsteadItems(baseReport, metric);
-   }
-
-   incrementHalsteadMetric(baseReport, metric, type)
-   {
-      if (baseReport)
-      {
-         baseReport.halstead[metric][type] += 1;
-      }
-   }
-
-   incrementLogicalSloc(currentReport, amount)
-   {
-      this.report.aggregate.sloc.logical += amount;
-
-      if (currentReport)
-      {
-         currentReport.sloc.logical += amount;
-      }
-   }
-
-   incrementTotalHalsteadItems(baseReport, metric)
-   {
-      this.incrementHalsteadMetric(baseReport, metric, 'total');
-   }
-
-   isHalsteadMetricDistinct(baseReport, metric, identifier)
-   {
-      return baseReport.halstead[metric].identifiers.indexOf(identifier) === -1;
-   }
-
-   popScope()
-   {
-      this.scopeStack.pop();
-
-      if (this.scopeStack.length > 0)
-      {
-         this.currentReport = this.scopeStack[this.scopeStack.length - 1];
-      }
-      else
-      {
-         this.currentReport = undefined;
-      }
-   }
-
-   processCyclomatic(node, syntax, currentReport)
-   {
-      this.incrementCounter(node, syntax, 'cyclomatic', this.incrementCyclomatic, currentReport);
-   }
-
-   processDependencies(node, syntax, clearDependencies)
-   {
-      let dependencies;
-
-      if (typeof syntax.dependencies === 'function')
-      {
-         dependencies = syntax.dependencies(node, clearDependencies);
-         if (typeof dependencies === 'object' || Array.isArray(dependencies))
+         // Process all class methods.
+         classReport.methods.forEach((methodReport) =>
          {
-            this.report.dependencies = this.report.dependencies.concat(dependencies);
+            this._calculateCyclomaticDensity(methodReport);
+            this._calculateHalsteadMetrics(methodReport.halstead);
+
+            methodReport.sumMetrics(classSums, indices);
+            methodReport.sumMetrics(sums, indices);
+         });
+
+         this._calculateCyclomaticDensity(classReport.methodReport);
+         this._calculateHalsteadMetrics(classReport.methodReport.halstead);
+
+         // If there are no class methods use the class aggregate MethodReport.
+         if (classMethodCount === 0)
+         {
+            // Sane handling of classes that contain no methods.
+            classReport.methodReport.sumMetrics(classSums, indices);
+            classMethodCount = 1;
          }
 
-         return true;
-      }
+         const classAverages = classSums.map((sum) => { return sum / classMethodCount; });
 
-      return false;
-   }
+         this._calculateMaintainabilityIndex(classReport, classAverages[indices.cyclomatic],
+          classAverages[indices.effort], classAverages[indices.loc]);
 
-   processHalsteadMetric(node, parent, syntax, metric, currentReport)
-   {
-      if (Array.isArray(syntax[metric]))
+         Object.keys(indices).forEach((index) => { classReport[index] = classAverages[indices[index]]; });
+      });
+
+      this._calculateCyclomaticDensity(report.methodReport);
+      this._calculateHalsteadMetrics(report.methodReport.halstead);
+
+      // If there are no module methods use the module aggregate MethodReport.
+      if (moduleMethodCount === 0)
       {
-         syntax[metric].forEach((s) =>
-         {
-            let identifier;
-
-            if (typeof s.identifier === 'function')
-            {
-               identifier = s.identifier(node, parent);
-            }
-            else
-            {
-               identifier = s.identifier;
-            }
-
-            if (typeof identifier !== 'undefined' && (typeof s.filter !== 'function' || s.filter(node) === true))
-            {
-               // Handle the case when a node / syntax returns an array of identifiers.
-               if (Array.isArray(identifier))
-               {
-                  identifier.forEach((element) => { this.halsteadItemEncountered(currentReport, metric, element); });
-               }
-               else
-               {
-                  this.halsteadItemEncountered(currentReport, metric, identifier);
-               }
-            }
-         });
+         // Sane handling of modules that contain no methods.
+         report.methodReport.sumMetrics(sums, indices);
+         moduleMethodCount = 1;
       }
-   }
 
-   processLloc(node, syntax, currentReport)
-   {
-      this.incrementCounter(node, syntax, 'lloc', this.incrementLogicalSloc, currentReport);
-   }
+      const moduleAverages = sums.map((sum) => { return sum / moduleMethodCount; });
 
-   /**
-    * Controls processing an AST node.
-    *
-    * @param {object}   node - Current AST node.
-    * @param {object}   parent - Parent AST node.
-    * @param {object}   syntax - Syntax trait associated with the give node type.
-    */
-   processNode(node, parent, syntax)
-   {
-      this.processLloc(node, syntax, this.currentReport);
-      this.processCyclomatic(node, syntax, this.currentReport);
-      this.processOperators(node, parent, syntax, this.currentReport);
-      this.processOperands(node, parent, syntax, this.currentReport);
+      this._calculateMaintainabilityIndex(report, moduleAverages[indices.cyclomatic],
+       moduleAverages[indices.effort], moduleAverages[indices.loc]);
 
-      if (this.processDependencies(node, syntax, this.clearDependencies))
-      {
-         // HACK: This will fail with async or if other syntax than CallExpression introduces dependencies.
-         // TODO: Come up with a less crude approach.
-         this.clearDependencies = false;
-      }
-   }
-
-   processOperands(node, parent, syntax, currentReport)
-   {
-      this.processHalsteadMetric(node, parent, syntax, 'operands', currentReport);
-   }
-
-   processOperators(node, parent, syntax, currentReport)
-   {
-      this.processHalsteadMetric(node, parent, syntax, 'operators', currentReport);
-   }
-
-   recordDistinctHalsteadMetric(baseReport, metric, identifier)
-   {
-      baseReport.halstead[metric].identifiers.push(identifier);
-   }
-
-   sumMaintainabilityMetrics(sums, indices, data)
-   {
-      sums[indices.loc] += data.sloc.logical;
-      sums[indices.cyclomatic] += data.cyclomatic;
-      sums[indices.effort] += data.halstead.effort;
-      sums[indices.params] += data.params;
+      Object.keys(indices).forEach((index) => { report[index] = moduleAverages[indices[index]]; });
    }
 }
