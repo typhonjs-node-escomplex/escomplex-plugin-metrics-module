@@ -134,7 +134,7 @@ export default class PluginMetricsModule
    }
 
    /**
-    * Stores settings and syntaxes, initializes local variables and creates the initial aggregate report.
+    * Stores settings and syntaxes.
     *
     * @param {object}   ev - escomplex plugin event data.
     */
