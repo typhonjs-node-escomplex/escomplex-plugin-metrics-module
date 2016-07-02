@@ -1,5 +1,6 @@
 'use strict';
 
+import HalsteadArray from 'typhonjs-escomplex-commons/src/module/traits/HalsteadArray';
 import MethodReport  from 'typhonjs-escomplex-commons/src/module/report/MethodReport';
 
 import safeName      from 'typhonjs-escomplex-commons/src/module/traits/safeName';
@@ -41,37 +42,42 @@ export default class PluginMetricsModule
       const report = ev.data.report;
       const node = ev.data.node;
       const parent = ev.data.parent;
-
       const syntax = this.syntaxes[node.type];
 
+      // Process node syntax.
       if (syntax !== null && typeof syntax === 'object')
       {
-         // Process node.
+         for (const key in syntax)
+         {
+            switch (syntax[key].metric)
+            {
+               case 'cyclomatic':
+                  report.incrementCyclomatic(syntax[key].valueOf(node, parent));
+                  break;
 
-         // Process LLOC.
-         report.incrementLogicalSloc(syntax.lloc.valueOf(node, parent));
+               case 'dependencies':
+                  report.addDependencies(syntax[key].valueOf(node, parent));
+                  break;
 
-         // Process Cyclomatic.
-         report.incrementCyclomatic(syntax.cyclomatic.valueOf(node, parent));
+               case 'lloc':
+                  report.incrementLogicalSloc(syntax[key].valueOf(node, parent));
+                  break;
+            }
 
-         // Process operators HalsteadArray.
-         syntax.operators.process(report, node, parent);
-
-         // Process operands HalsteadArray.
-         syntax.operands.process(report, node, parent);
-
-         // Process any dependencies.
-         report.addDependencies(syntax.dependencies.valueOf(node, parent));
+            // Process operands / operators HalsteadArray entries
+            if (syntax[key] instanceof HalsteadArray)
+            {
+               report.processHalsteadItems(syntax[key].metric, syntax[key].valueOf(node, parent));
+            }
+         }
 
          // Handle creating new scope if applicable.
          if (syntax.newScope)
          {
-            const newScope = syntax.newScope.valueOf(node, parent);
-
-            switch (newScope)
+            switch (syntax.newScope.valueOf(node, parent))
             {
                case 'class':
-                  report.createScope(newScope, safeName(node.id), node.loc.start.line, node.loc.end.line);
+                  report.createScope('class', safeName(node.id), node.loc.start.line, node.loc.end.line);
                   break;
 
                case 'method':
@@ -79,18 +85,19 @@ export default class PluginMetricsModule
                   // ESTree has a parent node which defines the method name with a child FunctionExpression /
                   // FunctionDeclaration. Babylon AST only has ClassMethod with a child `key` providing the method name.
                   const name = parent && parent.type === 'MethodDefinition' ? safeName(parent.key) :
-                   safeName(node.id || node.key);
+                     safeName(node.id || node.key);
 
                   const paramCount = node.params.length;
 
-                  report.createScope(newScope, name, node.loc.start.line, node.loc.end.line, paramCount);
+                  report.createScope('method', name, node.loc.start.line, node.loc.end.line, paramCount);
 
                   break;
                }
             }
          }
 
-         ev.data.ignoreKeys = syntax.ignoreKeys.valueOf(node, parent);
+         // Return any child keys to ignore in AST walking or an empty array.
+         ev.data.ignoreKeys = syntax.ignoreKeys ? syntax.ignoreKeys.valueOf(node, parent) : [];
       }
    }
 
@@ -109,15 +116,14 @@ export default class PluginMetricsModule
 
       if (syntax !== null && typeof syntax === 'object' && syntax.newScope)
       {
-         const newScope = syntax.newScope.valueOf(node, parent);
-
-         switch (newScope)
+         switch (syntax.newScope.valueOf(node, parent))
          {
             case 'class':
-               report.popScope(newScope);
+               report.popScope('class');
                break;
+
             case 'method':
-               report.popScope(newScope);
+               report.popScope('method');
                break;
          }
       }
@@ -134,7 +140,7 @@ export default class PluginMetricsModule
    }
 
    /**
-    * Stores settings and syntaxes.
+    * Stores settings and syntaxes, initializes local variables and creates the initial aggregate report.
     *
     * @param {object}   ev - escomplex plugin event data.
     */
