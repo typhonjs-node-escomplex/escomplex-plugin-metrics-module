@@ -1,5 +1,3 @@
-'use strict';
-
 import HalsteadArray from 'typhonjs-escomplex-commons/src/module/traits/HalsteadArray';
 import MethodReport  from 'typhonjs-escomplex-commons/src/module/report/MethodReport';
 
