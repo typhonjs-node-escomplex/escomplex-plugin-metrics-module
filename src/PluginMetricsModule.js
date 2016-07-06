@@ -302,7 +302,7 @@ export default class PluginMetricsModule
          this._calculateMaintainabilityIndex(classReport, classAverages[indices.cyclomatic],
           classAverages[indices.effort], classAverages[indices.loc]);
 
-         Object.keys(indices).forEach((index) => { classReport[index] = classAverages[indices[index]]; });
+         Object.keys(indices).forEach((key) => { classReport[key] = classAverages[indices[key]]; });
       });
 
       this._calculateCyclomaticDensity(report.methodReport);
@@ -321,6 +321,6 @@ export default class PluginMetricsModule
       this._calculateMaintainabilityIndex(report, moduleAverages[indices.cyclomatic],
        moduleAverages[indices.effort], moduleAverages[indices.loc]);
 
-      Object.keys(indices).forEach((index) => { report[index] = moduleAverages[indices[index]]; });
+      Object.keys(indices).forEach((key) => { report[key] = moduleAverages[indices[key]]; });
    }
 }
