@@ -1,5 +1,5 @@
 import HalsteadArray from 'typhonjs-escomplex-commons/src/module/traits/HalsteadArray';
-import MethodReport  from 'typhonjs-escomplex-commons/src/module/report/MethodReport';
+import ObjectUtil    from 'typhonjs-escomplex-commons/src/utils/ObjectUtil';
 
 import safeName      from 'typhonjs-escomplex-commons/src/module/traits/safeName';
 
@@ -170,7 +170,7 @@ export default class PluginMetricsModule
     */
    _calculateCyclomaticDensity(report)
    {
-      report.cyclomaticDensity = (report.cyclomatic / report.sloc.logical) * 100;
+      report.cyclomaticDensity = report.sloc.logical === 0 ? 0 : (report.cyclomatic / report.sloc.logical) * 100;
    }
 
    /**
@@ -255,23 +255,26 @@ export default class PluginMetricsModule
    _calculateMetrics(report)
    {
       let moduleMethodCount = report.methods.length;
-
-      // Retrieve the maintainability sums array and indices object hash.
-      const { sums, indices } = MethodReport.getMaintainabilityMetrics();
+      const moduleMethodAverages = report.methodAverage;
+      const moduleMethodAverageKeys = ObjectUtil.getAccessorList(moduleMethodAverages);
 
       // Handle module methods.
       report.methods.forEach((methodReport) =>
       {
-         this._calculateCyclomaticDensity(methodReport);
-         this._calculateHalsteadMetrics(methodReport.halstead);
+         moduleMethodAverageKeys.forEach((averageKey) =>
+         {
+            this._calculateCyclomaticDensity(methodReport);
+            this._calculateHalsteadMetrics(methodReport.halstead);
 
-         methodReport.sumMetrics(sums, indices);
+            const targetValue = ObjectUtil.safeAccess(methodReport, averageKey, 0);
+            ObjectUtil.safeSet(moduleMethodAverages, averageKey, targetValue, 'add');
+         });
       });
 
       // Handle module class reports.
       report.classes.forEach((classReport) =>
       {
-         const { sums: classSums } = MethodReport.getMaintainabilityMetrics();
+         const classMethodAverages = classReport.methodAverage;
 
          let classMethodCount = classReport.methods.length;
          moduleMethodCount += classMethodCount;
@@ -282,8 +285,13 @@ export default class PluginMetricsModule
             this._calculateCyclomaticDensity(methodReport);
             this._calculateHalsteadMetrics(methodReport.halstead);
 
-            methodReport.sumMetrics(classSums, indices);
-            methodReport.sumMetrics(sums, indices);
+            moduleMethodAverageKeys.forEach((averageKey) =>
+            {
+               const targetValue = ObjectUtil.safeAccess(methodReport, averageKey, 0);
+
+               ObjectUtil.safeSet(moduleMethodAverages, averageKey, targetValue, 'add');
+               ObjectUtil.safeSet(classMethodAverages, averageKey, targetValue, 'add');
+            });
          });
 
          this._calculateCyclomaticDensity(classReport.methodReport);
@@ -293,16 +301,23 @@ export default class PluginMetricsModule
          if (classMethodCount === 0)
          {
             // Sane handling of classes that contain no methods.
-            classReport.methodReport.sumMetrics(classSums, indices);
+            moduleMethodAverageKeys.forEach((averageKey) =>
+            {
+               const targetValue = ObjectUtil.safeAccess(classReport.methodReport, averageKey, 0);
+
+               ObjectUtil.safeSet(classMethodAverages, averageKey, targetValue, 'add');
+            });
+
             classMethodCount = 1;
          }
 
-         const classAverages = classSums.map((sum) => { return sum / classMethodCount; });
+         moduleMethodAverageKeys.forEach((averageKey) =>
+         {
+            ObjectUtil.safeSet(classMethodAverages, averageKey, classMethodCount, 'div');
+         });
 
-         this._calculateMaintainabilityIndex(classReport, classAverages[indices.cyclomatic],
-          classAverages[indices.effort], classAverages[indices.loc]);
-
-         Object.keys(indices).forEach((key) => { classReport[key] = classAverages[indices[key]]; });
+         this._calculateMaintainabilityIndex(classReport, classMethodAverages.cyclomatic,
+          classMethodAverages.halstead.effort, classMethodAverages.sloc.logical);
       });
 
       this._calculateCyclomaticDensity(report.methodReport);
@@ -311,16 +326,24 @@ export default class PluginMetricsModule
       // If there are no module methods use the module aggregate MethodReport.
       if (moduleMethodCount === 0)
       {
+         // Sane handling of classes that contain no methods.
+         moduleMethodAverageKeys.forEach((averageKey) =>
+         {
+            const targetValue = ObjectUtil.safeAccess(report.methodReport, averageKey, 0);
+
+            ObjectUtil.safeSet(moduleMethodAverages, averageKey, targetValue, 'add');
+         });
+
          // Sane handling of modules that contain no methods.
-         report.methodReport.sumMetrics(sums, indices);
          moduleMethodCount = 1;
       }
 
-      const moduleAverages = sums.map((sum) => { return sum / moduleMethodCount; });
+      moduleMethodAverageKeys.forEach((averageKey) =>
+      {
+         ObjectUtil.safeSet(moduleMethodAverages, averageKey, moduleMethodCount, 'div');
+      });
 
-      this._calculateMaintainabilityIndex(report, moduleAverages[indices.cyclomatic],
-       moduleAverages[indices.effort], moduleAverages[indices.loc]);
-
-      Object.keys(indices).forEach((key) => { report[key] = moduleAverages[indices[key]]; });
+      this._calculateMaintainabilityIndex(report, moduleMethodAverages.cyclomatic,
+       moduleMethodAverages.halstead.effort, moduleMethodAverages.sloc.logical);
    }
 }
