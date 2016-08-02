@@ -1,6 +1,6 @@
 {
   "name": "escomplex-plugin-metrics-module",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "homepage": "https://github.com/typhonjs-node-escomplex/escomplex-plugin-metrics-module/",
   "description": "Provides the core module metric / report generation plugin for typhonjs-escomplex module processing.",
   "license": "MPL-2.0",
@@ -20,10 +20,10 @@
     }
   ],
   "dependencies": {
-    "typhonjs-escomplex-commons": "^0.0.12"
+    "typhonjs-escomplex-commons": "^0.0.13"
   },
   "devDependencies": {
-    "escomplex-plugin-syntax-babylon": "^0.0.8",
+    "escomplex-plugin-syntax-babylon": "^0.0.9",
     "typhonjs-ast-walker": "^0.1.0",
     "typhonjs-config-eslint": "^0.4.0",
     "typhonjs-npm-build-test": "^0.3.0"
