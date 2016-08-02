@@ -294,8 +294,8 @@ export default class PluginMetricsModule
             });
          });
 
-         this._calculateCyclomaticDensity(classReport.methodReport);
-         this._calculateHalsteadMetrics(classReport.methodReport.halstead);
+         this._calculateCyclomaticDensity(classReport.aggregateMethodReport);
+         this._calculateHalsteadMetrics(classReport.aggregateMethodReport.halstead);
 
          // If there are no class methods use the class aggregate MethodReport.
          if (classMethodCount === 0)
@@ -303,7 +303,7 @@ export default class PluginMetricsModule
             // Sane handling of classes that contain no methods.
             moduleMethodAverageKeys.forEach((averageKey) =>
             {
-               const targetValue = ObjectUtil.safeAccess(classReport.methodReport, averageKey, 0);
+               const targetValue = ObjectUtil.safeAccess(classReport.aggregateMethodReport, averageKey, 0);
 
                ObjectUtil.safeSet(classMethodAverages, averageKey, targetValue, 'add');
             });
@@ -320,8 +320,8 @@ export default class PluginMetricsModule
           classMethodAverages.halstead.effort, classMethodAverages.sloc.logical);
       });
 
-      this._calculateCyclomaticDensity(report.methodReport);
-      this._calculateHalsteadMetrics(report.methodReport.halstead);
+      this._calculateCyclomaticDensity(report.aggregateMethodReport);
+      this._calculateHalsteadMetrics(report.aggregateMethodReport.halstead);
 
       // If there are no module methods use the module aggregate MethodReport.
       if (moduleMethodCount === 0)
@@ -329,7 +329,7 @@ export default class PluginMetricsModule
          // Sane handling of classes that contain no methods.
          moduleMethodAverageKeys.forEach((averageKey) =>
          {
-            const targetValue = ObjectUtil.safeAccess(report.methodReport, averageKey, 0);
+            const targetValue = ObjectUtil.safeAccess(report.aggregateMethodReport, averageKey, 0);
 
             ObjectUtil.safeSet(moduleMethodAverages, averageKey, targetValue, 'add');
          });
