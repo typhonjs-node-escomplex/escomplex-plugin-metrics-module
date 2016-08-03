@@ -1,7 +1,7 @@
 import HalsteadArray from 'typhonjs-escomplex-commons/src/module/traits/HalsteadArray';
-import ObjectUtil    from 'typhonjs-escomplex-commons/src/utils/ObjectUtil';
+import TraitUtil     from 'typhonjs-escomplex-commons/src/module/traits/TraitUtil';
 
-import safeName      from 'typhonjs-escomplex-commons/src/module/traits/safeName';
+import ObjectUtil    from 'typhonjs-escomplex-commons/src/utils/ObjectUtil';
 
 /**
  * Provides a typhonjs-escomplex-module / ESComplexModule plugin which gathers and calculates all default metrics.
@@ -75,22 +75,13 @@ export default class PluginMetricsModule
             switch (syntax.newScope.valueOf(node, parent))
             {
                case 'class':
-                  report.createScope('class', safeName(node.id), node.loc.start.line, node.loc.end.line);
+                  report.createScope('class', TraitUtil.safeName(node.id), node.loc.start.line, node.loc.end.line);
                   break;
 
                case 'method':
-               {
-                  // ESTree has a parent node which defines the method name with a child FunctionExpression /
-                  // FunctionDeclaration. Babylon AST only has ClassMethod with a child `key` providing the method name.
-                  const name = parent && parent.type === 'MethodDefinition' ? safeName(parent.key) :
-                     safeName(node.id || node.key);
-
-                  const paramCount = node.params.length;
-
-                  report.createScope('method', name, node.loc.start.line, node.loc.end.line, paramCount);
-
+                  report.createScope('method', TraitUtil.safeComputedName(node, parent), node.loc.start.line,
+                   node.loc.end.line, node.params.length);
                   break;
-               }
             }
          }
 
