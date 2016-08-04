@@ -12,6 +12,7 @@
    "test":
    {
       "type": "mocha",
-      "source": "./test/src"
+      "source": "./test/src",
+      "includes": [".js$"]
    }
 }
