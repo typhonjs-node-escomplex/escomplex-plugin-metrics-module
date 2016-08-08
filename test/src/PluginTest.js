@@ -7,6 +7,7 @@ import fs                  from 'fs';
 
 import PluginSyntaxBabylon from 'escomplex-plugin-syntax-babylon/src/PluginSyntaxBabylon';
 import ModuleReport        from 'typhonjs-escomplex-commons/src/module/report/ModuleReport';
+import ModuleScopeControl  from 'typhonjs-escomplex-commons/src/module/report/control/ModuleScopeControl';
 
 import ASTWalker           from 'typhonjs-ast-walker/src/ASTWalker';
 
@@ -40,19 +41,14 @@ pluginData.forEach((plugin) =>
             assert.isFunction(instance.onEnterNode);
          });
 
-         test('plugin function onExitNode is exported', () =>
-         {
-            assert.isFunction(instance.onExitNode);
-         });
-
          test('plugin function onModuleEnd is exported', () =>
          {
             assert.isFunction(instance.onModuleEnd);
          });
 
-         test('plugin function onModuleStart is exported', () =>
+         test('plugin function onScopeCreated is exported', () =>
          {
-            assert.isFunction(instance.onModuleStart);
+            assert.isFunction(instance.onScopeCreated);
          });
       });
 
@@ -92,6 +88,7 @@ pluginData.forEach((plugin) =>
          test('verify onModuleEnd results', () =>
          {
             const report = new ModuleReport(ast.loc.start.line, ast.loc.end.line);
+            const scopeControl = new ModuleScopeControl(report);
 
             let event = { data: { options: {}, settings: {} } };
 
@@ -108,16 +105,68 @@ pluginData.forEach((plugin) =>
 
             event = { data: { ast, report, settings, syntaxes } };
 
-            instance.onModuleStart(event);
-
             // Completely traverse the provided AST and defer to plugins to process node traversal.
             new ASTWalker().traverse(ast,
             {
-               enterNode: (node, parent) => { return instance.onEnterNode({ data: { report, node, parent } }); },
-               exitNode: (node, parent) => { instance.onExitNode({ data: { report, node, parent } }); }
+               enterNode: (node, parent) =>
+               {
+                  const syntax = syntaxes[node.type];
+
+                  let ignoreKeys = [];
+
+                  // Process node syntax / ignore keys.
+                  if (typeof syntax === 'object')
+                  {
+                     if (syntax.ignoreKeys)
+                     {
+                        ignoreKeys = syntax.ignoreKeys.valueOf(node, parent);
+                     }
+                  }
+
+                  ignoreKeys = instance.onEnterNode(
+                   { data: { report, scopeControl, ignoreKeys, syntaxes, settings, node, parent } });
+
+                  // Process node syntax / create scope.
+                  if (typeof syntax === 'object')
+                  {
+                     if (syntax.ignoreKeys)
+                     {
+                        ignoreKeys = syntax.ignoreKeys.valueOf(node, parent);
+                     }
+
+                     if (syntax.newScope)
+                     {
+                        const newScope = syntax.newScope.valueOf(node, parent);
+
+                        if (newScope)
+                        {
+                           scopeControl.createScope(newScope);
+                           instance.onScopeCreated({ data: { report, scopeControl, newScope } });
+                        }
+                     }
+                  }
+
+                  return ignoreKeys;
+               },
+
+               exitNode: (node, parent) =>
+               {
+                  const syntax = syntaxes[node.type];
+
+                  // Process node syntax / pop scope.
+                  if (typeof syntax === 'object' && syntax.newScope)
+                  {
+                     const newScope = syntax.newScope.valueOf(node, parent);
+
+                     if (newScope)
+                     {
+                        scopeControl.popScope(newScope);
+                     }
+                  }
+               }
             });
 
-            instance.onModuleEnd({ data: { report } });
+            instance.onModuleEnd({ data: { report, syntaxes, settings } });
 
             report.finalize();
 
