@@ -9,8 +9,6 @@ import ModuleMetricControl    from './ModuleMetricControl';
  */
 export default class PluginMetricsModule
 {
-   // ESComplexModule plugin callbacks ------------------------------------------------------------------------------
-
    /**
     * Loads any default settings that are not already provided by any user options.
     *
