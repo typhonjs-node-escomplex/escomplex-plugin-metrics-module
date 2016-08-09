@@ -1,4 +1,4 @@
-import ObjectUtil          from 'typhonjs-escomplex-commons/src/utils/ObjectUtil';
+import ObjectUtil from 'typhonjs-escomplex-commons/src/utils/ObjectUtil';
 
 /**
  * Provides a typhonjs-escomplex-module / ESComplexModule plugin which gathers and calculates all default metrics.
@@ -9,11 +9,115 @@ import ObjectUtil          from 'typhonjs-escomplex-commons/src/utils/ObjectUtil
 export default class ModuleMetricCalculate
 {
    /**
+    * Coordinates calculating all metrics. All module and class methods are traversed. If there are no module or class
+    * methods respectively the aggregate MethodReport is used for calculations.
+    *
+    * @param {ModuleReport}   moduleReport - The ModuleReport being processed.
+    * @param {object}         settings - Settings for module processing.
+    *
+    * @private
+    */
+   static calculate(moduleReport, settings)
+   {
+      let moduleMethodCount = moduleReport.methods.length;
+      const moduleMethodAverages = moduleReport.methodAverage;
+      const moduleMethodAverageKeys = ObjectUtil.getAccessorList(moduleMethodAverages);
+
+      // Handle module methods.
+      moduleReport.methods.forEach((methodReport) =>
+      {
+         moduleMethodAverageKeys.forEach((averageKey) =>
+         {
+            ModuleMetricCalculate.calculateCyclomaticDensity(methodReport);
+            ModuleMetricCalculate.calculateHalsteadMetrics(methodReport.halstead);
+
+            const targetValue = ObjectUtil.safeAccess(methodReport, averageKey, 0);
+            ObjectUtil.safeSet(moduleMethodAverages, averageKey, targetValue, 'add');
+         });
+      });
+
+      // Handle module class reports.
+      moduleReport.classes.forEach((classReport) =>
+      {
+         const classMethodAverages = classReport.methodAverage;
+
+         let classMethodCount = classReport.methods.length;
+         moduleMethodCount += classMethodCount;
+
+         // Process all class methods.
+         classReport.methods.forEach((methodReport) =>
+         {
+            ModuleMetricCalculate.calculateCyclomaticDensity(methodReport);
+            ModuleMetricCalculate.calculateHalsteadMetrics(methodReport.halstead);
+
+            moduleMethodAverageKeys.forEach((averageKey) =>
+            {
+               const targetValue = ObjectUtil.safeAccess(methodReport, averageKey, 0);
+
+               ObjectUtil.safeSet(moduleMethodAverages, averageKey, targetValue, 'add');
+               ObjectUtil.safeSet(classMethodAverages, averageKey, targetValue, 'add');
+            });
+         });
+
+         ModuleMetricCalculate.calculateCyclomaticDensity(classReport.aggregateMethodReport);
+         ModuleMetricCalculate.calculateHalsteadMetrics(classReport.aggregateMethodReport.halstead);
+
+         // If there are no class methods use the class aggregate MethodReport.
+         if (classMethodCount === 0)
+         {
+            // Sane handling of classes that contain no methods.
+            moduleMethodAverageKeys.forEach((averageKey) =>
+            {
+               const targetValue = ObjectUtil.safeAccess(classReport.aggregateMethodReport, averageKey, 0);
+
+               ObjectUtil.safeSet(classMethodAverages, averageKey, targetValue, 'add');
+            });
+
+            classMethodCount = 1;
+         }
+
+         moduleMethodAverageKeys.forEach((averageKey) =>
+         {
+            ObjectUtil.safeSet(classMethodAverages, averageKey, classMethodCount, 'div');
+         });
+
+         ModuleMetricCalculate.calculateMaintainabilityIndex(classReport, settings, classMethodAverages.cyclomatic,
+          classMethodAverages.halstead.effort, classMethodAverages.sloc.logical);
+      });
+
+      ModuleMetricCalculate.calculateCyclomaticDensity(moduleReport.aggregateMethodReport);
+      ModuleMetricCalculate.calculateHalsteadMetrics(moduleReport.aggregateMethodReport.halstead);
+
+      // If there are no module methods use the module aggregate MethodReport.
+      if (moduleMethodCount === 0)
+      {
+         // Sane handling of classes that contain no methods.
+         moduleMethodAverageKeys.forEach((averageKey) =>
+         {
+            const targetValue = ObjectUtil.safeAccess(moduleReport.aggregateMethodReport, averageKey, 0);
+
+            ObjectUtil.safeSet(moduleMethodAverages, averageKey, targetValue, 'add');
+         });
+
+         // Sane handling of modules that contain no methods.
+         moduleMethodCount = 1;
+      }
+
+      moduleMethodAverageKeys.forEach((averageKey) =>
+      {
+         ObjectUtil.safeSet(moduleMethodAverages, averageKey, moduleMethodCount, 'div');
+      });
+
+      ModuleMetricCalculate.calculateMaintainabilityIndex(moduleReport, settings, moduleMethodAverages.cyclomatic,
+       moduleMethodAverages.halstead.effort, moduleMethodAverages.sloc.logical);
+   }
+
+   /**
     * Calculates cyclomatic density - Proposed as a modification to cyclomatic complexity by Geoffrey K. Gill and
     * Chris F. Kemerer in 1991, this metric simply re-expresses it as a percentage of the logical lines of code. Lower
     * is better.
     *
-    * @param {MethodReport}   report - A MethodReport to perform calculations on.
+    * @param {AggregateMethodReport}   report - An AggregateMethodReport to perform calculations on.
     *
     * @private
     */
@@ -92,109 +196,5 @@ export default class ModuleMetricCalculate
 
       /* istanbul ignore if */
       if (settings.newmi) { report.maintainability = Math.max(0, (report.maintainability * 100) / 171); }
-   }
-
-   /**
-    * Coordinates calculating all metrics. All module and class methods are traversed. If there are no module or class
-    * methods respectively the aggregate MethodReport is used for calculations.
-    *
-    * @param {ModuleReport}   report - The ModuleReport being processed.
-    * @param {object}         settings - Settings for module processing.
-    *
-    * @private
-    */
-   static calculateMetrics(report, settings)
-   {
-      let moduleMethodCount = report.methods.length;
-      const moduleMethodAverages = report.methodAverage;
-      const moduleMethodAverageKeys = ObjectUtil.getAccessorList(moduleMethodAverages);
-
-      // Handle module methods.
-      report.methods.forEach((methodReport) =>
-      {
-         moduleMethodAverageKeys.forEach((averageKey) =>
-         {
-            ModuleMetricCalculate.calculateCyclomaticDensity(methodReport);
-            ModuleMetricCalculate.calculateHalsteadMetrics(methodReport.halstead);
-
-            const targetValue = ObjectUtil.safeAccess(methodReport, averageKey, 0);
-            ObjectUtil.safeSet(moduleMethodAverages, averageKey, targetValue, 'add');
-         });
-      });
-
-      // Handle module class reports.
-      report.classes.forEach((classReport) =>
-      {
-         const classMethodAverages = classReport.methodAverage;
-
-         let classMethodCount = classReport.methods.length;
-         moduleMethodCount += classMethodCount;
-
-         // Process all class methods.
-         classReport.methods.forEach((methodReport) =>
-         {
-            ModuleMetricCalculate.calculateCyclomaticDensity(methodReport);
-            ModuleMetricCalculate.calculateHalsteadMetrics(methodReport.halstead);
-
-            moduleMethodAverageKeys.forEach((averageKey) =>
-            {
-               const targetValue = ObjectUtil.safeAccess(methodReport, averageKey, 0);
-
-               ObjectUtil.safeSet(moduleMethodAverages, averageKey, targetValue, 'add');
-               ObjectUtil.safeSet(classMethodAverages, averageKey, targetValue, 'add');
-            });
-         });
-
-         ModuleMetricCalculate.calculateCyclomaticDensity(classReport.aggregateMethodReport);
-         ModuleMetricCalculate.calculateHalsteadMetrics(classReport.aggregateMethodReport.halstead);
-
-         // If there are no class methods use the class aggregate MethodReport.
-         if (classMethodCount === 0)
-         {
-            // Sane handling of classes that contain no methods.
-            moduleMethodAverageKeys.forEach((averageKey) =>
-            {
-               const targetValue = ObjectUtil.safeAccess(classReport.aggregateMethodReport, averageKey, 0);
-
-               ObjectUtil.safeSet(classMethodAverages, averageKey, targetValue, 'add');
-            });
-
-            classMethodCount = 1;
-         }
-
-         moduleMethodAverageKeys.forEach((averageKey) =>
-         {
-            ObjectUtil.safeSet(classMethodAverages, averageKey, classMethodCount, 'div');
-         });
-
-         ModuleMetricCalculate.calculateMaintainabilityIndex(classReport, settings, classMethodAverages.cyclomatic,
-          classMethodAverages.halstead.effort, classMethodAverages.sloc.logical);
-      });
-
-      ModuleMetricCalculate.calculateCyclomaticDensity(report.aggregateMethodReport);
-      ModuleMetricCalculate.calculateHalsteadMetrics(report.aggregateMethodReport.halstead);
-
-      // If there are no module methods use the module aggregate MethodReport.
-      if (moduleMethodCount === 0)
-      {
-         // Sane handling of classes that contain no methods.
-         moduleMethodAverageKeys.forEach((averageKey) =>
-         {
-            const targetValue = ObjectUtil.safeAccess(report.aggregateMethodReport, averageKey, 0);
-
-            ObjectUtil.safeSet(moduleMethodAverages, averageKey, targetValue, 'add');
-         });
-
-         // Sane handling of modules that contain no methods.
-         moduleMethodCount = 1;
-      }
-
-      moduleMethodAverageKeys.forEach((averageKey) =>
-      {
-         ObjectUtil.safeSet(moduleMethodAverages, averageKey, moduleMethodCount, 'div');
-      });
-
-      ModuleMetricCalculate.calculateMaintainabilityIndex(report, settings, moduleMethodAverages.cyclomatic,
-       moduleMethodAverages.halstead.effort, moduleMethodAverages.sloc.logical);
    }
 }

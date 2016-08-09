@@ -5,21 +5,21 @@ export default class ModuleMetricControl
    /**
     * Potentially adds given dependencies for tracking.
     *
-    * @param {ModuleReport}         report - The ModuleReport being processed.
+    * @param {ModuleReport}         moduleReport - The ModuleReport being processed.
     * @param {object|Array<object>} dependencies - Dependencies to add.
     */
-   static addDependencies(report, dependencies)
+   static addDependencies(moduleReport, dependencies)
    {
       if (typeof dependencies === 'object' || Array.isArray(dependencies))
       {
-         report.dependencies = report.dependencies.concat(dependencies);
+         moduleReport.dependencies = moduleReport.dependencies.concat(dependencies);
       }
    }
 
    /**
-    * Creates a report scope when a class or method is entered.
+    * Creates a moduleReport scope when a class or method is entered.
     *
-    * @param {ModuleReport}         report - The ModuleReport being processed.
+    * @param {ModuleReport}         moduleReport - The ModuleReport being processed.
     * @param {ModuleScopeControl}   scopeControl - The associated module report scope control.
     * @param {object}               newScope - An object hash defining the new scope including:
     * ```
@@ -30,7 +30,7 @@ export default class ModuleMetricControl
     * (number) paramCount - (For method scopes) Number of parameters for method.
     * ```
     */
-   static createScope(report, scopeControl, newScope = {})
+   static createScope(moduleReport, scopeControl, newScope = {})
    {
       if (typeof newScope !== 'object') { throw new TypeError(`createScope error: 'newScope' is not an 'object'.`); }
 
@@ -66,8 +66,8 @@ export default class ModuleMetricControl
                throw new TypeError(`createScope error: 'newScope.paramCount' is not an 'integer'.`);
             }
 
-            // Increments the associated aggregate report parameter count.
-            report.aggregateMethodReport.params += newScope.paramCount;
+            // Increments the associated aggregate moduleReport parameter count.
+            moduleReport.aggregateMethodReport.params += newScope.paramCount;
 
             const classReport = scopeControl.getCurrentClassReport();
 
@@ -83,37 +83,37 @@ export default class ModuleMetricControl
     * Increments the Halstead `metric` for the given `identifier` for the ModuleReport and any current class or method
     * report being tracked.
     *
-    * @param {ModuleReport}         report - The ModuleReport being processed.
+    * @param {ModuleReport}         moduleReport - The ModuleReport being processed.
     * @param {ModuleScopeControl}   scopeControl - The associated module report scope control.
     * @param {string}               metric - A Halstead metric name.
     * @param {string}               identifier - A Halstead identifier name.
     */
-   static halsteadItemEncountered(report, scopeControl, metric, identifier)
+   static halsteadItemEncountered(moduleReport, scopeControl, metric, identifier)
    {
       const currentClassReport = scopeControl.getCurrentClassReport();
       const currentMethodReport = scopeControl.getCurrentMethodReport();
 
-      this.incrementHalsteadItems(report, metric, identifier);
+      ModuleMetricControl.incrementHalsteadItems(moduleReport, metric, identifier);
 
-      if (currentClassReport) { this.incrementHalsteadItems(currentClassReport, metric, identifier); }
+      if (currentClassReport) { ModuleMetricControl.incrementHalsteadItems(currentClassReport, metric, identifier); }
 
-      if (currentMethodReport) { this.incrementHalsteadItems(currentMethodReport, metric, identifier); }
+      if (currentMethodReport) { ModuleMetricControl.incrementHalsteadItems(currentMethodReport, metric, identifier); }
    }
 
 
    /**
     * Increments the cyclomatic metric for the ModuleReport and any current class or method report being tracked.
     *
-    * @param {ModuleReport}         report - The ModuleReport being processed.
+    * @param {ModuleReport}         moduleReport - The ModuleReport being processed.
     * @param {ModuleScopeControl}   scopeControl - The associated module report scope control.
     * @param {number}   amount - Amount to increment.
     */
-   static incrementCyclomatic(report, scopeControl, amount)
+   static incrementCyclomatic(moduleReport, scopeControl, amount)
    {
       const currentClassReport = scopeControl.getCurrentClassReport();
       const currentMethodReport = scopeControl.getCurrentMethodReport();
 
-      report.methodAggregate.cyclomatic += amount;
+      moduleReport.methodAggregate.cyclomatic += amount;
 
       if (currentClassReport) { currentClassReport.methodAggregate.cyclomatic += amount; }
       if (currentMethodReport) { currentMethodReport.cyclomatic += amount; }
@@ -123,16 +123,16 @@ export default class ModuleMetricControl
     * Increments the logical SLOC (source lines of code) metric for the ModuleReport and any current class or method
     * report being tracked.
     *
-    * @param {ModuleReport}         report - The ModuleReport being processed.
+    * @param {ModuleReport}         moduleReport - The ModuleReport being processed.
     * @param {ModuleScopeControl}   scopeControl - The associated module report scope control.
     * @param {number}   amount - Amount to increment.
     */
-   static incrementLogicalSloc(report, scopeControl, amount)
+   static incrementLogicalSloc(moduleReport, scopeControl, amount)
    {
       const currentClassReport = scopeControl.getCurrentClassReport();
       const currentMethodReport = scopeControl.getCurrentMethodReport();
 
-      report.methodAggregate.sloc.logical += amount;
+      moduleReport.methodAggregate.sloc.logical += amount;
 
       if (currentClassReport) { currentClassReport.methodAggregate.sloc.logical += amount; }
       if (currentMethodReport) { currentMethodReport.sloc.logical += amount; }
@@ -141,48 +141,48 @@ export default class ModuleMetricControl
    /**
     * Increments the associated aggregate report Halstead items including distinct and total counts.
     *
-    * @param {ModuleReport}   report - The ModuleReport being processed.
+    * @param {ModuleReport}   moduleReport - The ModuleReport being processed.
     * @param {string}         metric - A Halstead metric name.
     * @param {string}         identifier - A Halstead identifier name.
     */
-   static incrementHalsteadItems(report, metric, identifier)
+   static incrementHalsteadItems(moduleReport, metric, identifier)
    {
       // Increments the associated aggregate report HalsteadData for distinct identifiers.
-      if (report.aggregateMethodReport.halstead[metric].identifiers.indexOf(identifier) === -1)
+      if (moduleReport.aggregateMethodReport.halstead[metric].identifiers.indexOf(identifier) === -1)
       {
-         report.aggregateMethodReport.halstead[metric].identifiers.push(identifier);
-         report.aggregateMethodReport.halstead[metric]['distinct'] += 1;
+         moduleReport.aggregateMethodReport.halstead[metric].identifiers.push(identifier);
+         moduleReport.aggregateMethodReport.halstead[metric]['distinct'] += 1;
       }
 
       // Increment total halstead items
-      report.aggregateMethodReport.halstead[metric]['total'] += 1;
+      moduleReport.aggregateMethodReport.halstead[metric]['total'] += 1;
    }
 
    /**
     * Processes all TraitHalstead identifier data.
     *
-    * @param {ModuleReport}         report - The ModuleReport being processed.
+    * @param {ModuleReport}         moduleReport - The ModuleReport being processed.
     * @param {ModuleScopeControl}   scopeControl - The associated module report scope control.
     * @param {object}               syntax - The associated syntax being processed for current node.
     * @param {object}               node - The node being entered.
     * @param {object}               parent - The parent node of the node being entered.
     */
-   static processSyntax(report, scopeControl, syntax, node, parent)
+   static processSyntax(moduleReport, scopeControl, syntax, node, parent)
    {
       for (const key in syntax)
       {
          switch (syntax[key].metric)
          {
             case 'cyclomatic':
-               this.incrementCyclomatic(report, scopeControl, syntax[key].valueOf(node, parent));
+               ModuleMetricControl.incrementCyclomatic(moduleReport, scopeControl, syntax[key].valueOf(node, parent));
                break;
 
             case 'dependencies':
-               this.addDependencies(report, syntax[key].valueOf(node, parent));
+               ModuleMetricControl.addDependencies(moduleReport, syntax[key].valueOf(node, parent));
                break;
 
             case 'lloc':
-               this.incrementLogicalSloc(report, scopeControl, syntax[key].valueOf(node, parent));
+               ModuleMetricControl.incrementLogicalSloc(moduleReport, scopeControl, syntax[key].valueOf(node, parent));
                break;
          }
 
@@ -193,7 +193,7 @@ export default class ModuleMetricControl
 
             identifiers.forEach((identifier) =>
             {
-               this.halsteadItemEncountered(report, scopeControl, syntax[key].metric, identifier);
+               ModuleMetricControl.halsteadItemEncountered(moduleReport, scopeControl, syntax[key].metric, identifier);
             });
          }
       }

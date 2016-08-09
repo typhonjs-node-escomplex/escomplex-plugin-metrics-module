@@ -33,14 +33,17 @@ export default class PluginMetricsModule
     */
    onEnterNode(ev)
    {
-      const report = ev.data.report;
+      const moduleReport = ev.data.moduleReport;
       const scopeControl = ev.data.scopeControl;
       const node = ev.data.node;
       const parent = ev.data.parent;
       const syntax = ev.data.syntaxes[node.type];
 
       // Process node syntax.
-      if (typeof syntax === 'object') { ModuleMetricControl.processSyntax(report, scopeControl, syntax, node, parent); }
+      if (typeof syntax === 'object')
+      {
+         ModuleMetricControl.processSyntax(moduleReport, scopeControl, syntax, node, parent);
+      }
    }
 
    /**
@@ -50,7 +53,7 @@ export default class PluginMetricsModule
     */
    onModuleEnd(ev)
    {
-      ModuleMetricCalculate.calculateMetrics(ev.data.report, ev.data.settings);
+      ModuleMetricCalculate.calculate(ev.data.moduleReport, ev.data.settings);
    }
 
    /**
@@ -60,10 +63,10 @@ export default class PluginMetricsModule
     */
    onScopeCreated(ev)
    {
-      const report = ev.data.report;
+      const moduleReport = ev.data.moduleReport;
       const scopeControl = ev.data.scopeControl;
       const newScope = ev.data.newScope;
 
-      ModuleMetricControl.createScope(report, scopeControl, newScope);
+      ModuleMetricControl.createScope(moduleReport, scopeControl, newScope);
    }
 }
