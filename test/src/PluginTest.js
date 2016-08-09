@@ -87,8 +87,8 @@ pluginData.forEach((plugin) =>
           */
          test('verify onModuleEnd results', () =>
          {
-            const report = new ModuleReport(ast.loc.start.line, ast.loc.end.line);
-            const scopeControl = new ModuleScopeControl(report);
+            const moduleReport = new ModuleReport(ast.loc.start.line, ast.loc.end.line);
+            const scopeControl = new ModuleScopeControl(moduleReport);
 
             let event = { data: { options: {}, settings: {} } };
 
@@ -102,8 +102,6 @@ pluginData.forEach((plugin) =>
             syntaxInstance.onLoadSyntax(event);
 
             const syntaxes = event.data.syntaxes;
-
-            event = { data: { ast, report, settings, syntaxes } };
 
             // Completely traverse the provided AST and defer to plugins to process node traversal.
             new ASTWalker().traverse(ast,
@@ -124,7 +122,7 @@ pluginData.forEach((plugin) =>
                   }
 
                   ignoreKeys = instance.onEnterNode(
-                   { data: { report, scopeControl, ignoreKeys, syntaxes, settings, node, parent } });
+                   { data: { moduleReport, scopeControl, ignoreKeys, syntaxes, settings, node, parent } });
 
                   // Process node syntax / create scope.
                   if (typeof syntax === 'object')
@@ -141,7 +139,7 @@ pluginData.forEach((plugin) =>
                         if (newScope)
                         {
                            scopeControl.createScope(newScope);
-                           instance.onScopeCreated({ data: { report, scopeControl, newScope } });
+                           instance.onScopeCreated({ data: { moduleReport, scopeControl, newScope } });
                         }
                      }
                   }
@@ -166,11 +164,11 @@ pluginData.forEach((plugin) =>
                }
             });
 
-            instance.onModuleEnd({ data: { report, syntaxes, settings } });
+            instance.onModuleEnd({ data: { moduleReport, syntaxes, settings } });
 
-            report.finalize();
+            moduleReport.finalize();
 
-            assert.strictEqual(JSON.stringify(report), JSON.stringify(reportResults));
+            assert.strictEqual(JSON.stringify(moduleReport), JSON.stringify(reportResults));
          });
       });
    });
