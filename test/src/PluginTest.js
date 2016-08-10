@@ -1,7 +1,3 @@
-'use strict';
-
-import 'babel-polyfill';
-
 import { assert }          from 'chai';
 import fs                  from 'fs';
 
@@ -41,14 +37,24 @@ pluginData.forEach((plugin) =>
             assert.isFunction(instance.onEnterNode);
          });
 
-         test('plugin function onModuleEnd is exported', () =>
+         test('plugin function onModuleAverage is exported', () =>
          {
-            assert.isFunction(instance.onModuleEnd);
+            assert.isFunction(instance.onModuleAverage);
          });
 
-         test('plugin function onScopeCreated is exported', () =>
+         test('plugin function onModuleCalculate is exported', () =>
          {
-            assert.isFunction(instance.onScopeCreated);
+            assert.isFunction(instance.onModuleCalculate);
+         });
+
+         test('plugin function onModuleCalculate is exported', () =>
+         {
+            assert.isFunction(instance.onModulePostAverage);
+         });
+
+         test('plugin function onModuleScopeCreated is exported', () =>
+         {
+            assert.isFunction(instance.onModuleScopeCreated);
          });
       });
 
@@ -84,8 +90,11 @@ pluginData.forEach((plugin) =>
 
          /**
           * Bootstraps the ESComplexModule runtime and fudges traversing the AST with the Babylon trait syntaxes.
+          *
+          * Note: That the control flow below exactly replicates typhonjs-escomplex-module / ESComplexModule. If there
+          * are any future changes to ESComplexModule the below control flow will need to be modified accordingly.
           */
-         test('verify onModuleEnd results', () =>
+         test('verify calculated results', () =>
          {
             const moduleReport = new ModuleReport(ast.loc.start.line, ast.loc.end.line);
             const scopeControl = new ModuleScopeControl(moduleReport);
@@ -139,7 +148,7 @@ pluginData.forEach((plugin) =>
                         if (newScope)
                         {
                            scopeControl.createScope(newScope);
-                           instance.onScopeCreated({ data: { moduleReport, scopeControl, newScope } });
+                           instance.onModuleScopeCreated({ data: { moduleReport, scopeControl, newScope } });
                         }
                      }
                   }
@@ -164,7 +173,9 @@ pluginData.forEach((plugin) =>
                }
             });
 
-            instance.onModuleEnd({ data: { moduleReport, syntaxes, settings } });
+            instance.onModuleCalculate({ data: { moduleReport, syntaxes, settings } });
+            instance.onModuleAverage({ data: { moduleReport, syntaxes, settings } });
+            instance.onModulePostAverage({ data: { moduleReport, syntaxes, settings } });
 
             moduleReport.finalize();
 
