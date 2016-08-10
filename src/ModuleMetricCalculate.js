@@ -1,5 +1,3 @@
-import ObjectUtil from 'typhonjs-escomplex-commons/src/utils/ObjectUtil';
-
 /**
  * Provides a typhonjs-escomplex-module / ESComplexModule plugin which gathers and calculates all default metrics.
  *
@@ -13,103 +11,34 @@ export default class ModuleMetricCalculate
     * methods respectively the aggregate MethodReport is used for calculations.
     *
     * @param {ModuleReport}   moduleReport - The ModuleReport being processed.
-    * @param {object}         settings - Settings for module processing.
     *
     * @private
     */
-   static calculate(moduleReport, settings)
+   static calculate(moduleReport)
    {
-      let moduleMethodCount = moduleReport.methods.length;
-      const moduleMethodAverages = moduleReport.methodAverage;
-      const moduleMethodAverageKeys = ObjectUtil.getAccessorList(moduleMethodAverages);
-
       // Handle module methods.
       moduleReport.methods.forEach((methodReport) =>
       {
-         moduleMethodAverageKeys.forEach((averageKey) =>
-         {
-            ModuleMetricCalculate.calculateCyclomaticDensity(methodReport);
-            ModuleMetricCalculate.calculateHalsteadMetrics(methodReport.halstead);
-
-            const targetValue = ObjectUtil.safeAccess(methodReport, averageKey, 0);
-            ObjectUtil.safeSet(moduleMethodAverages, averageKey, targetValue, 'add');
-         });
+         ModuleMetricCalculate.calculateCyclomaticDensity(methodReport);
+         ModuleMetricCalculate.calculateHalsteadMetrics(methodReport.halstead);
       });
 
       // Handle module class reports.
       moduleReport.classes.forEach((classReport) =>
       {
-         const classMethodAverages = classReport.methodAverage;
-
-         let classMethodCount = classReport.methods.length;
-         moduleMethodCount += classMethodCount;
-
          // Process all class methods.
          classReport.methods.forEach((methodReport) =>
          {
             ModuleMetricCalculate.calculateCyclomaticDensity(methodReport);
             ModuleMetricCalculate.calculateHalsteadMetrics(methodReport.halstead);
-
-            moduleMethodAverageKeys.forEach((averageKey) =>
-            {
-               const targetValue = ObjectUtil.safeAccess(methodReport, averageKey, 0);
-
-               ObjectUtil.safeSet(moduleMethodAverages, averageKey, targetValue, 'add');
-               ObjectUtil.safeSet(classMethodAverages, averageKey, targetValue, 'add');
-            });
          });
 
          ModuleMetricCalculate.calculateCyclomaticDensity(classReport.aggregateMethodReport);
          ModuleMetricCalculate.calculateHalsteadMetrics(classReport.aggregateMethodReport.halstead);
-
-         // If there are no class methods use the class aggregate MethodReport.
-         if (classMethodCount === 0)
-         {
-            // Sane handling of classes that contain no methods.
-            moduleMethodAverageKeys.forEach((averageKey) =>
-            {
-               const targetValue = ObjectUtil.safeAccess(classReport.aggregateMethodReport, averageKey, 0);
-
-               ObjectUtil.safeSet(classMethodAverages, averageKey, targetValue, 'add');
-            });
-
-            classMethodCount = 1;
-         }
-
-         moduleMethodAverageKeys.forEach((averageKey) =>
-         {
-            ObjectUtil.safeSet(classMethodAverages, averageKey, classMethodCount, 'div');
-         });
-
-         ModuleMetricCalculate.calculateMaintainabilityIndex(classReport, settings, classMethodAverages.cyclomatic,
-          classMethodAverages.halstead.effort, classMethodAverages.sloc.logical);
       });
 
       ModuleMetricCalculate.calculateCyclomaticDensity(moduleReport.aggregateMethodReport);
       ModuleMetricCalculate.calculateHalsteadMetrics(moduleReport.aggregateMethodReport.halstead);
-
-      // If there are no module methods use the module aggregate MethodReport.
-      if (moduleMethodCount === 0)
-      {
-         // Sane handling of classes that contain no methods.
-         moduleMethodAverageKeys.forEach((averageKey) =>
-         {
-            const targetValue = ObjectUtil.safeAccess(moduleReport.aggregateMethodReport, averageKey, 0);
-
-            ObjectUtil.safeSet(moduleMethodAverages, averageKey, targetValue, 'add');
-         });
-
-         // Sane handling of modules that contain no methods.
-         moduleMethodCount = 1;
-      }
-
-      moduleMethodAverageKeys.forEach((averageKey) =>
-      {
-         ObjectUtil.safeSet(moduleMethodAverages, averageKey, moduleMethodCount, 'div');
-      });
-
-      ModuleMetricCalculate.calculateMaintainabilityIndex(moduleReport, settings, moduleMethodAverages.cyclomatic,
-       moduleMethodAverages.halstead.effort, moduleMethodAverages.sloc.logical);
    }
 
    /**
@@ -157,44 +86,5 @@ export default class ModuleMetricCalculate
          halstead.bugs = halstead.volume / 3000;
          halstead.time = halstead.effort / 18;
       }
-   }
-
-   /**
-    * Designed in 1991 by Paul Oman and Jack Hagemeister at the University of Idaho, this metric is calculated at the
-    * whole program or module level from averages of the other 3 metrics, using the following formula:
-    * ```
-    * 171 -
-    * (3.42 * ln(mean effort)) -
-    * (0.23 * ln(mean cyclomatic complexity)) -
-    * (16.2 * ln(mean logical LOC))
-    * ```
-    * Values are on a logarithmic scale ranging from negative infinity up to 171, with greater numbers indicating a
-    * higher level of maintainability. In their original paper, Oman and Hagemeister identified 65 as the threshold
-    * value below which a program should be considered difficult to maintain.
-    *
-    * @param {ClassReport|ModuleReport}   report - A ClassReport or ModuleReport to perform calculations on.
-    * @param {object}               settings - Settings for module processing.
-    * @param {number}               averageCyclomatic - Average cyclomatic metric across a ClassReport / ModuleReport.
-    * @param {number}               averageEffort - Average Halstead effort across a ClassReport / ModuleReport.
-    * @param {number}               averageLoc - Average SLOC metric across a ClassReport / ModuleReport.
-    *
-    * @private
-    */
-   static calculateMaintainabilityIndex(report, settings, averageCyclomatic, averageEffort, averageLoc)
-   {
-      /* istanbul ignore if */
-      if (averageCyclomatic === 0) { throw new Error('Encountered function with cyclomatic complexity zero!'); }
-
-      report.maintainability =
-       171
-       - (3.42 * Math.log(averageEffort))
-       - (0.23 * Math.log(averageCyclomatic))
-       - (16.2 * Math.log(averageLoc));
-
-      /* istanbul ignore if */
-      if (report.maintainability > 171) { report.maintainability = 171; }
-
-      /* istanbul ignore if */
-      if (settings.newmi) { report.maintainability = Math.max(0, (report.maintainability * 100) / 171); }
    }
 }

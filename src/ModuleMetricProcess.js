@@ -1,6 +1,9 @@
 import HalsteadArray from 'typhonjs-escomplex-commons/src/module/traits/HalsteadArray';
 
-export default class ModuleMetricControl
+/**
+ * Provides the main processing of syntax data for all default metrics gathered.
+ */
+export default class ModuleMetricProcess
 {
    /**
     * Potentially adds given dependencies for tracking.
@@ -93,11 +96,11 @@ export default class ModuleMetricControl
       const currentClassReport = scopeControl.getCurrentClassReport();
       const currentMethodReport = scopeControl.getCurrentMethodReport();
 
-      ModuleMetricControl.incrementHalsteadItems(moduleReport, metric, identifier);
+      ModuleMetricProcess.incrementHalsteadItems(moduleReport, metric, identifier);
 
-      if (currentClassReport) { ModuleMetricControl.incrementHalsteadItems(currentClassReport, metric, identifier); }
+      if (currentClassReport) { ModuleMetricProcess.incrementHalsteadItems(currentClassReport, metric, identifier); }
 
-      if (currentMethodReport) { ModuleMetricControl.incrementHalsteadItems(currentMethodReport, metric, identifier); }
+      if (currentMethodReport) { ModuleMetricProcess.incrementHalsteadItems(currentMethodReport, metric, identifier); }
    }
 
 
@@ -174,15 +177,15 @@ export default class ModuleMetricControl
          switch (syntax[key].metric)
          {
             case 'cyclomatic':
-               ModuleMetricControl.incrementCyclomatic(moduleReport, scopeControl, syntax[key].valueOf(node, parent));
+               ModuleMetricProcess.incrementCyclomatic(moduleReport, scopeControl, syntax[key].valueOf(node, parent));
                break;
 
             case 'dependencies':
-               ModuleMetricControl.addDependencies(moduleReport, syntax[key].valueOf(node, parent));
+               ModuleMetricProcess.addDependencies(moduleReport, syntax[key].valueOf(node, parent));
                break;
 
             case 'lloc':
-               ModuleMetricControl.incrementLogicalSloc(moduleReport, scopeControl, syntax[key].valueOf(node, parent));
+               ModuleMetricProcess.incrementLogicalSloc(moduleReport, scopeControl, syntax[key].valueOf(node, parent));
                break;
          }
 
@@ -193,7 +196,7 @@ export default class ModuleMetricControl
 
             identifiers.forEach((identifier) =>
             {
-               ModuleMetricControl.halsteadItemEncountered(moduleReport, scopeControl, syntax[key].metric, identifier);
+               ModuleMetricProcess.halsteadItemEncountered(moduleReport, scopeControl, syntax[key].metric, identifier);
             });
          }
       }

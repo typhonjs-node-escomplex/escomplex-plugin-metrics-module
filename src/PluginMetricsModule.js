@@ -1,5 +1,7 @@
-import ModuleMetricCalculate  from './ModuleMetricCalculate';
-import ModuleMetricControl    from './ModuleMetricControl';
+import ModuleMetricAverage       from './ModuleMetricAverage';
+import ModuleMetricCalculate     from './ModuleMetricCalculate';
+import ModuleMetricPostAverage   from './ModuleMetricPostAverage';
+import ModuleMetricProcess       from './ModuleMetricProcess';
 
 /**
  * Provides a typhonjs-escomplex-module / ESComplexModule plugin which gathers and calculates all default metrics.
@@ -27,7 +29,7 @@ export default class PluginMetricsModule
 
    /**
     * During AST traversal when a node is entered it is processed immediately if the node type corresponds to a
-    * loaded trait syntax.
+    * loaded trait syntax. This is the main metric capture and processing location.
     *
     * @param {object}   ev - escomplex plugin event data.
     */
@@ -42,31 +44,47 @@ export default class PluginMetricsModule
       // Process node syntax.
       if (typeof syntax === 'object')
       {
-         ModuleMetricControl.processSyntax(moduleReport, scopeControl, syntax, node, parent);
+         ModuleMetricProcess.processSyntax(moduleReport, scopeControl, syntax, node, parent);
       }
    }
 
    /**
-    * Performs final calculations based on collected report data.
+    * Performs average calculations based on collected report data.
     *
     * @param {object}   ev - escomplex plugin event data.
     */
-   onModuleEnd(ev)
+   onModuleAverage(ev)
    {
-      ModuleMetricCalculate.calculate(ev.data.moduleReport, ev.data.settings);
+      ModuleMetricAverage.calculate(ev.data.moduleReport);
    }
 
    /**
-    * A new module report scope has been created. Update any associated metrics regarding the new scope.
+    * Performs initial calculations based on collected report data.
     *
     * @param {object}   ev - escomplex plugin event data.
     */
-   onScopeCreated(ev)
+   onModuleCalculate(ev)
    {
-      const moduleReport = ev.data.moduleReport;
-      const scopeControl = ev.data.scopeControl;
-      const newScope = ev.data.newScope;
+      ModuleMetricCalculate.calculate(ev.data.moduleReport);
+   }
 
-      ModuleMetricControl.createScope(moduleReport, scopeControl, newScope);
+   /**
+    * Performs any calculations that depend on averaged data. This is where the maintainability index is calculated.
+    *
+    * @param {object}   ev - escomplex plugin event data.
+    */
+   onModulePostAverage(ev)
+   {
+      ModuleMetricPostAverage.calculate(ev.data.moduleReport, ev.data.settings);
+   }
+
+   /**
+    * A new module report scope has been created. Update any associated metrics processing regarding the new scope.
+    *
+    * @param {object}   ev - escomplex plugin event data.
+    */
+   onModuleScopeCreated(ev)
+   {
+      ModuleMetricProcess.createScope(ev.data.moduleReport, ev.data.scopeControl, ev.data.newScope);
    }
 }
