@@ -1,14 +1,41 @@
 {
-  "presets": ["es2015"],
+  "presets": ["env", "stage-2"],
+
   "plugins":
   [
     "add-module-exports",
-    ["module-alias",
+    ["module-resolver", {
+      "root": ["."],
+      "alias":
+      {
+        "escomplex-plugin-syntax-babylon/src": "escomplex-plugin-syntax-babylon/dist",
+
+        "typhonjs-ast-walker/src": "typhonjs-ast-walker/dist",
+        "typhonjs-escomplex-commons/src": "typhonjs-escomplex-commons/dist"
+      }
+    }],
+    "transform-runtime"
+  ],
+
+  "env":
+  {
+    "escomplex-dev":
+    {
+      "plugins":
       [
-        { "src": "npm:escomplex-plugin-syntax-babylon/dist", "expose": "escomplex-plugin-syntax-babylon/src" },
-        { "src": "npm:typhonjs-ast-walker/dist", "expose": "typhonjs-ast-walker/src" },
-        { "src": "npm:typhonjs-escomplex-commons/dist", "expose": "typhonjs-escomplex-commons/src" }
+        "add-module-exports",
+        ["module-resolver", {
+          "root": ["."],
+          "cwd": "babelrc",
+          "alias":
+          {
+            "escomplex-plugin-syntax-babylon/src": "../escomplex-plugin-syntax-babylon/src",
+
+            "typhonjs-escomplex-commons/src": "../typhonjs-escomplex-commons/src"
+          }
+        }],
+        "transform-runtime"
       ]
-    ]
-  ]
+    }
+  }
 }

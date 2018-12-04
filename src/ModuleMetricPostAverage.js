@@ -18,14 +18,19 @@ export default class ModuleMetricPostAverage
    static calculate(moduleReport, settings)
    {
       // Handle module report.
-      const moduleMethodAverages = moduleReport.methodAverage;
+      const moduleAggregateAverage = moduleReport.methodAggregateAverage;
 
-      ModuleMetricPostAverage.calculateMaintainabilityIndex(moduleReport, settings, moduleMethodAverages.cyclomatic,
-         moduleMethodAverages.halstead.effort, moduleMethodAverages.sloc.logical);
+      ModuleMetricPostAverage.calculateMaintainabilityIndex(moduleReport, settings, moduleAggregateAverage.cyclomatic,
+       moduleAggregateAverage.halstead.effort, moduleAggregateAverage.sloc.logical);
 
       // Handle module class reports.
       moduleReport.classes.forEach((classReport) =>
       {
+         //const classAggregateAverage = classReport.methodAggregateAverage;
+         //
+         //ModuleMetricPostAverage.calculateMaintainabilityIndex(classReport, settings, classAggregateAverage.cyclomatic,
+         // classAggregateAverage.halstead.effort, classAggregateAverage.sloc.logical);
+
          const classMethodAverages = classReport.methodAverage;
 
          ModuleMetricPostAverage.calculateMaintainabilityIndex(classReport, settings, classMethodAverages.cyclomatic,
@@ -46,23 +51,24 @@ export default class ModuleMetricPostAverage
     * higher level of maintainability. In their original paper, Oman and Hagemeister identified 65 as the threshold
     * value below which a program should be considered difficult to maintain.
     *
+    * Note: Bare module reports with no branching control flow or module methods and class reports with no class
+    * methods start with a base cyclomatic complexity of 0. It is necessary to handle this case as
+    * Math.log(0) === -Infinity.
+    *
     * @param {ClassReport|ModuleReport}   report - A ClassReport or ModuleReport to perform calculations on.
     * @param {object}               settings - Settings for module processing.
     * @param {number}               averageCyclomatic - Average cyclomatic metric across a ClassReport / ModuleReport.
     * @param {number}               averageEffort - Average Halstead effort across a ClassReport / ModuleReport.
-    * @param {number}               averageLoc - Average SLOC metric across a ClassReport / ModuleReport.
+    * @param {number}               averageLoc - Average logical SLOC across a ClassReport / ModuleReport.
     *
     * @private
     */
    static calculateMaintainabilityIndex(report, settings, averageCyclomatic, averageEffort, averageLoc)
    {
-      /* istanbul ignore if */
-      if (averageCyclomatic === 0) { throw new Error('Encountered report with cyclomatic complexity zero!'); }
-
       report.maintainability =
        171
        - (3.42 * Math.log(averageEffort))
-       - (0.23 * Math.log(averageCyclomatic))
+       - (0.23 * averageCyclomatic === 0 ? 0 : Math.log(averageCyclomatic))
        - (16.2 * Math.log(averageLoc));
 
       /* istanbul ignore if */

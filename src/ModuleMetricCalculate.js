@@ -11,8 +11,6 @@ export default class ModuleMetricCalculate
     * methods respectively the aggregate MethodReport is used for calculations.
     *
     * @param {ModuleReport}   moduleReport - The ModuleReport being processed.
-    *
-    * @private
     */
    static calculate(moduleReport)
    {

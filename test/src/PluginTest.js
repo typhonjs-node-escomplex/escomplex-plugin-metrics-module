@@ -52,9 +52,14 @@ pluginData.forEach((plugin) =>
             assert.isFunction(instance.onModulePostAverage);
          });
 
-         test('plugin function onModuleScopeCreated is exported', () =>
+         test('plugin function onModulePreScopeCreated is exported', () =>
          {
-            assert.isFunction(instance.onModuleScopeCreated);
+            assert.isFunction(instance.onModulePreScopeCreated);
+         });
+
+         test('plugin function onModulePostScopeCreated is exported', () =>
+         {
+            assert.isFunction(instance.onModulePostScopeCreated);
          });
       });
 
@@ -147,8 +152,14 @@ pluginData.forEach((plugin) =>
 
                         if (newScope)
                         {
+                           // TODO: new code
+                           instance.onModulePreScopeCreated({ data: { moduleReport, scopeControl, newScope, node, parent } });
                            scopeControl.createScope(newScope);
-                           instance.onModuleScopeCreated({ data: { moduleReport, scopeControl, newScope } });
+                           instance.onModulePostScopeCreated({ data: { moduleReport, scopeControl, newScope } });
+
+                           // TODO: old code
+                           // scopeControl.createScope(newScope);
+                           // instance.onModuleScopeCreated({ data: { moduleReport, scopeControl, newScope } });
                         }
                      }
                   }

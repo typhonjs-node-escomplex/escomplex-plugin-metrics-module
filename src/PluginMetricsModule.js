@@ -83,8 +83,19 @@ export default class PluginMetricsModule
     *
     * @param {object}   ev - escomplex plugin event data.
     */
-   onModuleScopeCreated(ev)
+   onModulePostScopeCreated(ev)
    {
-      ModuleMetricProcess.createScope(ev.data.moduleReport, ev.data.scopeControl, ev.data.newScope);
+      ModuleMetricProcess.postScopeCreated(ev.data.moduleReport, ev.data.scopeControl, ev.data.newScope);
+   }
+
+   /**
+    * A new module report scope has been created. Update any associated metrics processing regarding the new scope.
+    *
+    * @param {object}   ev - escomplex plugin event data.
+    */
+   onModulePreScopeCreated(ev)
+   {
+      ModuleMetricProcess.preScopeCreated(ev.data.moduleReport, ev.data.scopeControl, ev.data.newScope, ev.data.node,
+       ev.data.parent);
    }
 }

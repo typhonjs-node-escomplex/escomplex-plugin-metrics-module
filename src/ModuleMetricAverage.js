@@ -1,4 +1,6 @@
-import ObjectUtil from 'typhonjs-escomplex-commons/src/utils/ObjectUtil';
+import ModuleReport  from 'typhonjs-escomplex-commons/src/module/report/ModuleReport';
+
+import ObjectUtil    from 'typhonjs-escomplex-commons/src/utils/ObjectUtil';
 
 /**
  * Provides a typhonjs-escomplex-module / ESComplexModule plugin which gathers and calculates all default metrics.
@@ -14,83 +16,60 @@ export default class ModuleMetricAverage
     *
     * @param {ModuleReport}   moduleReport - The ModuleReport being processed.
     * @param {object}         settings - Settings for module processing.
-    *
-    * @private
     */
    static calculate(moduleReport)
    {
       let moduleMethodCount = moduleReport.methods.length;
-      const moduleMethodAverages = moduleReport.methodAverage;
-      const moduleMethodAverageKeys = ObjectUtil.getAccessorList(moduleMethodAverages);
+      let moduleAggregateDivisor = moduleMethodCount + 1 // Include the module as a potential control path.
 
       // Handle module methods.
       moduleReport.methods.forEach((methodReport) =>
       {
-         moduleMethodAverageKeys.forEach((averageKey) =>
-         {
-            const targetValue = ObjectUtil.safeAccess(methodReport, averageKey, 0);
-            ObjectUtil.safeSet(moduleMethodAverages, averageKey, targetValue, 'add');
-         });
+         ObjectUtil.safeBatchSet(moduleReport.methodAverage, moduleReport.methodAverage.keys, methodReport, 'add');
       });
 
       // Handle module class reports.
       moduleReport.classes.forEach((classReport) =>
       {
-         const classMethodAverages = classReport.methodAverage;
+         const classMethodCount = classReport.methods.length;
+         const classAggregateDivisor = classMethodCount + 1;
 
-         let classMethodCount = classReport.methods.length;
          moduleMethodCount += classMethodCount;
+         moduleAggregateDivisor += classMethodCount;  // Soon to add + 1 for the Class aggregate
 
          // Process all class methods.
          classReport.methods.forEach((methodReport) =>
          {
-            moduleMethodAverageKeys.forEach((averageKey) =>
-            {
-               const targetValue = ObjectUtil.safeAccess(methodReport, averageKey, 0);
-
-               ObjectUtil.safeSet(moduleMethodAverages, averageKey, targetValue, 'add');
-               ObjectUtil.safeSet(classMethodAverages, averageKey, targetValue, 'add');
-            });
+            ObjectUtil.safeBatchSet(moduleReport.methodAverage, classReport.methodAverage.keys, methodReport, 'add');
+            ObjectUtil.safeBatchSet(classReport.methodAverage, classReport.methodAverage.keys, methodReport, 'add');
          });
 
-         // If there are no class methods use the class aggregate MethodReport.
-         if (classMethodCount === 0)
+         // Calculate the pure average method data only if there are class methods.
+         if (classMethodCount !== 0)
          {
-            // Sane handling of classes that contain no methods.
-            moduleMethodAverageKeys.forEach((averageKey) =>
-            {
-               const targetValue = ObjectUtil.safeAccess(classReport.aggregateMethodReport, averageKey, 0);
-
-               ObjectUtil.safeSet(classMethodAverages, averageKey, targetValue, 'add');
-            });
-
-            classMethodCount = 1;
+            ObjectUtil.safeBatchSet(classReport.methodAverage, classReport.methodAverage.keys,
+             classMethodCount, 'div');
          }
 
-         moduleMethodAverageKeys.forEach((averageKey) =>
-         {
-            ObjectUtil.safeSet(classMethodAverages, averageKey, classMethodCount, 'div');
-         });
+         // Calculate average class aggregate method data by adding the aggregate & dividing by the class divisor.
+         ObjectUtil.safeBatchSet(classReport.methodAggregateAverage, classReport.methodAggregateAverage.keys,
+          classReport.methodAggregate, 'add');
+
+         ObjectUtil.safeBatchSet(classReport.methodAggregateAverage, classReport.methodAggregateAverage.keys,
+          classAggregateDivisor, 'div');
       });
 
-      // If there are no module methods use the module aggregate MethodReport.
-      if (moduleMethodCount === 0)
+      // Calculate the pure average method data only if there are module methods.
+      if (moduleMethodCount !== 0)
       {
-         // Sane handling of classes that contain no methods.
-         moduleMethodAverageKeys.forEach((averageKey) =>
-         {
-            const targetValue = ObjectUtil.safeAccess(moduleReport.aggregateMethodReport, averageKey, 0);
-
-            ObjectUtil.safeSet(moduleMethodAverages, averageKey, targetValue, 'add');
-         });
-
-         // Sane handling of modules that contain no methods.
-         moduleMethodCount = 1;
+         ObjectUtil.safeBatchSet(moduleReport.methodAverage, moduleReport.methodAverage.keys, moduleMethodCount, 'div');
       }
 
-      moduleMethodAverageKeys.forEach((averageKey) =>
-      {
-         ObjectUtil.safeSet(moduleMethodAverages, averageKey, moduleMethodCount, 'div');
-      });
+      // Calculate average module aggregate method data by adding the aggregate & dividing by the module divisor.
+      ObjectUtil.safeBatchSet(moduleReport.methodAggregateAverage, moduleReport.methodAggregateAverage.keys,
+       moduleReport.methodAggregate, 'add');
+
+      ObjectUtil.safeBatchSet(moduleReport.methodAggregateAverage, moduleReport.methodAggregateAverage.keys,
+       moduleAggregateDivisor, 'div');
    }
 }

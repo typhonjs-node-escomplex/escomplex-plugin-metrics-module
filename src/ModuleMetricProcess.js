@@ -1,5 +1,7 @@
 import HalsteadArray from 'typhonjs-escomplex-commons/src/module/traits/HalsteadArray';
 
+let nodeType;
+
 /**
  * Provides the main processing of syntax data for all default metrics gathered.
  */
@@ -26,35 +28,86 @@ export default class ModuleMetricProcess
     * @param {ModuleScopeControl}   scopeControl - The associated module report scope control.
     * @param {object}               newScope - An object hash defining the new scope including:
     * ```
-    * (string) type - Type of report to create.
-    * (string) name - Name of the class or method.
-    * (number) lineStart - Start line of method.
-    * (number) lineEnd - End line of method.
-    * (number) paramCount - (For method scopes) Number of parameters for method.
+    * (string) type - Type of report scope being created.
     * ```
     */
-   static createScope(moduleReport, scopeControl, newScope = {})
+   static preScopeCreated(moduleReport, scopeControl, newScope = {}, node, parent)
    {
-      if (typeof newScope !== 'object') { throw new TypeError(`createScope error: 'newScope' is not an 'object'.`); }
+      if (typeof newScope !== 'object')
+      {
+         throw new TypeError(`preScopeCreated error: 'newScope' is not an 'object'.`);
+      }
 
       if (typeof newScope.type !== 'string')
       {
-         throw new TypeError(`createScope error: 'newScope.type' is not a 'string'.`);
+         throw new TypeError(`preScopeCreated error: 'newScope.type' is not a 'string'.`);
       }
 
-      if (typeof newScope.name !== 'string')
+      switch (newScope.type)
       {
-         throw new TypeError(`createScope error: 'newScope.name' is not a 'string'.`);
+         case 'class':
+         case 'method':
+
+            // Increments logical SLOC for previous report scopes.
+            if (Number.isInteger(newScope.lloc))
+            {
+               // Increments current module report associated aggregate report parameter count.
+               moduleReport.aggregateMethodReport.sloc.logical += newScope.lloc;
+
+               const classReport = scopeControl.getCurrentClassReport();
+               const methodReport = scopeControl.getCurrentMethodReport();
+
+               if (classReport) { classReport.aggregateMethodReport.sloc.logical += newScope.lloc; }
+               if (methodReport) { methodReport.sloc.logical += newScope.lloc; }
+            }
+
+            if (newScope.operands instanceof HalsteadArray)
+            {
+               const identifiers = newScope.operands.valueOf(node, parent);
+
+               identifiers.forEach((identifier) =>
+               {
+                  ModuleMetricProcess.halsteadItemEncountered(moduleReport, scopeControl, 'operands', identifier);
+               });
+            }
+
+            if (newScope.operators instanceof HalsteadArray)
+            {
+               const identifiers = newScope.operators.valueOf(node, parent);
+
+               identifiers.forEach((identifier) =>
+               {
+                  ModuleMetricProcess.halsteadItemEncountered(moduleReport, scopeControl, 'operators', identifier);
+               });
+            }
+            break;
+      }
+   }
+
+   /**
+    * Creates a moduleReport scope when a class or method is entered.
+    *
+    * @param {ModuleReport}         moduleReport - The ModuleReport being processed.
+    * @param {ModuleScopeControl}   scopeControl - The associated module report scope control.
+    * @param {object}               newScope - An object hash defining the new scope including:
+    * ```
+    * (string) type - Type of report scope being created.
+    * (string) name - Name of the class or method.
+    * (number) lineStart - Start line of method.
+    * (number) lineEnd - End line of method.
+    * (Array<string>) paramNames - (For method scopes) An array of parameters names for method.
+    * ```
+    */
+   static postScopeCreated(moduleReport, scopeControl, newScope = {})
+   {
+      if (typeof newScope !== 'object')
+      {
+         throw new TypeError(`postScopeCreated error: 'newScope' is not an 'object'.`);
       }
 
-      if (!Number.isInteger(newScope.lineStart))
+      if (typeof newScope.type !== 'string')
       {
-         throw new TypeError(`createScope error: 'newScope.lineStart' is not an 'integer'.`);
-      }
-
-      if (!Number.isInteger(newScope.lineEnd))
-      {
-         throw new TypeError(`createScope error: 'newScope.lineEnd' is not an 'integer'.`);
+         throw new TypeError(`postScopeCreated error: 'newScope.type' is not a 'string'.`);
       }
 
       switch (newScope.type)
@@ -64,19 +117,40 @@ export default class ModuleMetricProcess
 
          case 'method':
          {
-            if (!Number.isInteger(newScope.paramCount))
+            if (!Number.isInteger(newScope.cyclomatic))
             {
-               throw new TypeError(`createScope error: 'newScope.paramCount' is not an 'integer'.`);
+               throw new TypeError(`postScopeCreated error: 'newScope.cyclomatic' is not an 'integer'.`);
             }
 
-            // Increments the associated aggregate moduleReport parameter count.
-            moduleReport.aggregateMethodReport.params += newScope.paramCount;
+            if (!Array.isArray(newScope.paramNames))
+            {
+               throw new TypeError(`postScopeCreated error: 'newScope.paramNames' is not an 'array'.`);
+            }
 
             const classReport = scopeControl.getCurrentClassReport();
+            const methodReport = scopeControl.getCurrentMethodReport();
 
-            // Increments current class report associated aggregate report parameter count.
-            if (classReport) { classReport.aggregateMethodReport.params += newScope.paramCount; }
+            // Increments current module report associated aggregate report cyclomatic count.
+            moduleReport.aggregateMethodReport.cyclomatic += newScope.cyclomatic;
 
+            // Increments current module report associated aggregate report parameter count.
+            moduleReport.aggregateMethodReport.paramCount += newScope.paramNames.length;
+
+            if (classReport)
+            {
+               // Increments current class report associated aggregate report cyclomatic count.
+               classReport.aggregateMethodReport.cyclomatic += newScope.cyclomatic;
+
+               // Increments current class report associated aggregate report parameter count.
+               classReport.aggregateMethodReport.paramCount += newScope.paramNames.length;
+            }
+
+            if (Number.isInteger(newScope.postLloc))
+            {
+               moduleReport.aggregateMethodReport.sloc.logical += newScope.postLloc;
+               if (classReport) { classReport.aggregateMethodReport.sloc.logical += newScope.postLloc; }
+               if (methodReport) { methodReport.sloc.logical += newScope.postLloc; }
+            }
             break;
          }
       }
@@ -102,7 +176,6 @@ export default class ModuleMetricProcess
 
       if (currentMethodReport) { ModuleMetricProcess.incrementHalsteadItems(currentMethodReport, metric, identifier); }
    }
-
 
    /**
     * Increments the cyclomatic metric for the ModuleReport and any current class or method report being tracked.
@@ -138,27 +211,35 @@ export default class ModuleMetricProcess
       moduleReport.methodAggregate.sloc.logical += amount;
 
       if (currentClassReport) { currentClassReport.methodAggregate.sloc.logical += amount; }
-      if (currentMethodReport) { currentMethodReport.sloc.logical += amount; }
+      if (currentMethodReport)
+      {
+//if (amount > 0)
+//{
+//   console.log('!! MMP - incrementLogicalSloc (method) - node type: ' + nodeType + '; amount: ' + amount);
+//}
+
+         currentMethodReport.sloc.logical += amount;
+      }
    }
 
    /**
     * Increments the associated aggregate report Halstead items including distinct and total counts.
     *
-    * @param {ModuleReport}   moduleReport - The ModuleReport being processed.
-    * @param {string}         metric - A Halstead metric name.
-    * @param {string}         identifier - A Halstead identifier name.
+    * @param {ModuleReport|ClassReport|MethodReport}  report - The report being processed.
+    * @param {string}                                 metric - A Halstead metric name.
+    * @param {string}                                 identifier - A Halstead identifier name.
     */
-   static incrementHalsteadItems(moduleReport, metric, identifier)
+   static incrementHalsteadItems(report, metric, identifier)
    {
       // Increments the associated aggregate report HalsteadData for distinct identifiers.
-      if (moduleReport.aggregateMethodReport.halstead[metric].identifiers.indexOf(identifier) === -1)
+      if (report.aggregateMethodReport.halstead[metric].identifiers.indexOf(identifier) === -1)
       {
-         moduleReport.aggregateMethodReport.halstead[metric].identifiers.push(identifier);
-         moduleReport.aggregateMethodReport.halstead[metric]['distinct'] += 1;
+         report.aggregateMethodReport.halstead[metric].identifiers.push(identifier);
+         report.aggregateMethodReport.halstead[metric]['distinct'] += 1;
       }
 
       // Increment total halstead items
-      moduleReport.aggregateMethodReport.halstead[metric]['total'] += 1;
+      report.aggregateMethodReport.halstead[metric]['total'] += 1;
    }
 
    /**
@@ -174,29 +255,36 @@ export default class ModuleMetricProcess
    {
       for (const key in syntax)
       {
-         switch (syntax[key].metric)
+         const trait = syntax[key];
+
+         switch (trait.metric)
          {
             case 'cyclomatic':
-               ModuleMetricProcess.incrementCyclomatic(moduleReport, scopeControl, syntax[key].valueOf(node, parent));
+               ModuleMetricProcess.incrementCyclomatic(moduleReport, scopeControl, trait.valueOf(node, parent));
                break;
 
             case 'dependencies':
-               ModuleMetricProcess.addDependencies(moduleReport, syntax[key].valueOf(node, parent));
+               ModuleMetricProcess.addDependencies(moduleReport, trait.valueOf(node, parent));
                break;
 
             case 'lloc':
-               ModuleMetricProcess.incrementLogicalSloc(moduleReport, scopeControl, syntax[key].valueOf(node, parent));
+//if (trait.valueOf(node, parent) > 0)
+//{
+//   console.log('!! MMP - increment sloc - node type: ' + node.type + '; value: ' + trait.valueOf(node, parent));
+//}
+nodeType = node.type;
+               ModuleMetricProcess.incrementLogicalSloc(moduleReport, scopeControl, trait.valueOf(node, parent));
                break;
          }
 
          // Process operands / operators HalsteadArray entries.
-         if (syntax[key] instanceof HalsteadArray)
+         if (trait instanceof HalsteadArray)
          {
-            const identifiers = syntax[key].valueOf(node, parent);
+            const identifiers = trait.valueOf(node, parent);
 
             identifiers.forEach((identifier) =>
             {
-               ModuleMetricProcess.halsteadItemEncountered(moduleReport, scopeControl, syntax[key].metric, identifier);
+               ModuleMetricProcess.halsteadItemEncountered(moduleReport, scopeControl, trait.metric, identifier);
             });
          }
       }
