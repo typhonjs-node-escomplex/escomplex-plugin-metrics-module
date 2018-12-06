@@ -26,9 +26,9 @@ export default class ModuleMetricPostAverage
       // Handle module class reports.
       moduleReport.classes.forEach((classReport) =>
       {
-         //const classAggregateAverage = classReport.methodAggregateAverage;
+         // const classAggregateAverage = classReport.methodAggregateAverage;
          //
-         //ModuleMetricPostAverage.calculateMaintainabilityIndex(classReport, settings, classAggregateAverage.cyclomatic,
+         // ModuleMetricPostAverage.calculateMaintainabilityIndex(classReport, settings, classAggregateAverage.cyclomatic,
          // classAggregateAverage.halstead.effort, classAggregateAverage.sloc.logical);
 
          const classMethodAverages = classReport.methodAverage;

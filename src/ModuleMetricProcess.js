@@ -1,7 +1,5 @@
 import HalsteadArray from 'typhonjs-escomplex-commons/src/module/traits/HalsteadArray';
 
-let nodeType;
-
 /**
  * Provides the main processing of syntax data for all default metrics gathered.
  */
@@ -27,6 +25,8 @@ export default class ModuleMetricProcess
     * @param {ModuleReport}         moduleReport - The ModuleReport being processed.
     * @param {ModuleScopeControl}   scopeControl - The associated module report scope control.
     * @param {object}               newScope - An object hash defining the new scope including:
+    * @param {object}               node - Current AST node.
+    * @param {object}               parent - Parent AST node.
     * ```
     * (string) type - Type of report scope being created.
     * ```
@@ -213,10 +213,10 @@ export default class ModuleMetricProcess
       if (currentClassReport) { currentClassReport.methodAggregate.sloc.logical += amount; }
       if (currentMethodReport)
       {
-//if (amount > 0)
-//{
+// if (amount > 0)
+// {
 //   console.log('!! MMP - incrementLogicalSloc (method) - node type: ' + nodeType + '; amount: ' + amount);
-//}
+// }
 
          currentMethodReport.sloc.logical += amount;
       }
@@ -268,11 +268,10 @@ export default class ModuleMetricProcess
                break;
 
             case 'lloc':
-//if (trait.valueOf(node, parent) > 0)
-//{
+// if (trait.valueOf(node, parent) > 0)
+// {
 //   console.log('!! MMP - increment sloc - node type: ' + node.type + '; value: ' + trait.valueOf(node, parent));
-//}
-nodeType = node.type;
+// }
                ModuleMetricProcess.incrementLogicalSloc(moduleReport, scopeControl, trait.valueOf(node, parent));
                break;
          }

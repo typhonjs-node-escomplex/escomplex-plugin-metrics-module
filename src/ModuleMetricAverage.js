@@ -1,5 +1,3 @@
-import ModuleReport  from 'typhonjs-escomplex-commons/src/module/report/ModuleReport';
-
 import ObjectUtil    from 'typhonjs-escomplex-commons/src/utils/ObjectUtil';
 
 /**
@@ -20,7 +18,7 @@ export default class ModuleMetricAverage
    static calculate(moduleReport)
    {
       let moduleMethodCount = moduleReport.methods.length;
-      let moduleAggregateDivisor = moduleMethodCount + 1 // Include the module as a potential control path.
+      let moduleAggregateDivisor = moduleMethodCount + 1; // Include the module as a potential control path.
 
       // Handle module methods.
       moduleReport.methods.forEach((methodReport) =>
