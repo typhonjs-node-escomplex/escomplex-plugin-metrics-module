@@ -50,10 +50,10 @@ export default class ModuleMetricAverage
          }
 
          // Calculate average class aggregate method data by adding the aggregate & dividing by the class divisor.
-         ObjectUtil.safeBatchSet(classReport.methodAggregateAverage, classReport.methodAggregateAverage.keys,
-          classReport.methodAggregate, 'add');
+         ObjectUtil.safeBatchSet(classReport.aggregateAverage, classReport.aggregateAverage.keys,
+          classReport.aggregate, 'add');
 
-         ObjectUtil.safeBatchSet(classReport.methodAggregateAverage, classReport.methodAggregateAverage.keys,
+         ObjectUtil.safeBatchSet(classReport.aggregateAverage, classReport.aggregateAverage.keys,
           classAggregateDivisor, 'div');
       });
 
@@ -64,10 +64,10 @@ export default class ModuleMetricAverage
       }
 
       // Calculate average module aggregate method data by adding the aggregate & dividing by the module divisor.
-      ObjectUtil.safeBatchSet(moduleReport.methodAggregateAverage, moduleReport.methodAggregateAverage.keys,
-       moduleReport.methodAggregate, 'add');
+      ObjectUtil.safeBatchSet(moduleReport.aggregateAverage, moduleReport.aggregateAverage.keys,
+       moduleReport.aggregate, 'add');
 
-      ObjectUtil.safeBatchSet(moduleReport.methodAggregateAverage, moduleReport.methodAggregateAverage.keys,
+      ObjectUtil.safeBatchSet(moduleReport.aggregateAverage, moduleReport.aggregateAverage.keys,
        moduleAggregateDivisor, 'div');
    }
 }

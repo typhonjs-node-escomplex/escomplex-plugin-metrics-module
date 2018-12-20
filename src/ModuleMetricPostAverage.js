@@ -18,7 +18,7 @@ export default class ModuleMetricPostAverage
    static calculate(moduleReport, settings)
    {
       // Handle module report.
-      const moduleAggregateAverage = moduleReport.methodAggregateAverage;
+      const moduleAggregateAverage = moduleReport.aggregateAverage;
 
       ModuleMetricPostAverage.calculateMaintainabilityIndex(moduleReport, settings, moduleAggregateAverage.cyclomatic,
        moduleAggregateAverage.halstead.effort, moduleAggregateAverage.sloc.logical);
@@ -26,7 +26,7 @@ export default class ModuleMetricPostAverage
       // Handle module class reports.
       moduleReport.classes.forEach((classReport) =>
       {
-         // const classAggregateAverage = classReport.methodAggregateAverage;
+         // const classAggregateAverage = classReport.aggregateAverage;
          //
          // ModuleMetricPostAverage.calculateMaintainabilityIndex(classReport, settings, classAggregateAverage.cyclomatic,
          // classAggregateAverage.halstead.effort, classAggregateAverage.sloc.logical);

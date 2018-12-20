@@ -31,12 +31,12 @@ export default class ModuleMetricCalculate
             ModuleMetricCalculate.calculateHalsteadMetrics(methodReport.halstead);
          });
 
-         ModuleMetricCalculate.calculateCyclomaticDensity(classReport.aggregateMethodReport);
-         ModuleMetricCalculate.calculateHalsteadMetrics(classReport.aggregateMethodReport.halstead);
+         ModuleMetricCalculate.calculateCyclomaticDensity(classReport.aggregateReport);
+         ModuleMetricCalculate.calculateHalsteadMetrics(classReport.aggregateReport.halstead);
       });
 
-      ModuleMetricCalculate.calculateCyclomaticDensity(moduleReport.aggregateMethodReport);
-      ModuleMetricCalculate.calculateHalsteadMetrics(moduleReport.aggregateMethodReport.halstead);
+      ModuleMetricCalculate.calculateCyclomaticDensity(moduleReport.aggregateReport);
+      ModuleMetricCalculate.calculateHalsteadMetrics(moduleReport.aggregateReport.halstead);
    }
 
    /**

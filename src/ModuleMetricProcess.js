@@ -52,12 +52,12 @@ export default class ModuleMetricProcess
             if (Number.isInteger(newScope.lloc))
             {
                // Increments current module report associated aggregate report parameter count.
-               moduleReport.aggregateMethodReport.sloc.logical += newScope.lloc;
+               moduleReport.aggregateReport.sloc.logical += newScope.lloc;
 
                const classReport = scopeControl.getCurrentClassReport();
                const methodReport = scopeControl.getCurrentMethodReport();
 
-               if (classReport) { classReport.aggregateMethodReport.sloc.logical += newScope.lloc; }
+               if (classReport) { classReport.aggregateReport.sloc.logical += newScope.lloc; }
                if (methodReport) { methodReport.sloc.logical += newScope.lloc; }
             }
 
@@ -131,24 +131,24 @@ export default class ModuleMetricProcess
             const methodReport = scopeControl.getCurrentMethodReport();
 
             // Increments current module report associated aggregate report cyclomatic count.
-            moduleReport.aggregateMethodReport.cyclomatic += newScope.cyclomatic;
+            moduleReport.aggregateReport.cyclomatic += newScope.cyclomatic;
 
             // Increments current module report associated aggregate report parameter count.
-            moduleReport.aggregateMethodReport.paramCount += newScope.paramNames.length;
+            moduleReport.aggregateReport.paramCount += newScope.paramNames.length;
 
             if (classReport)
             {
                // Increments current class report associated aggregate report cyclomatic count.
-               classReport.aggregateMethodReport.cyclomatic += newScope.cyclomatic;
+               classReport.aggregateReport.cyclomatic += newScope.cyclomatic;
 
                // Increments current class report associated aggregate report parameter count.
-               classReport.aggregateMethodReport.paramCount += newScope.paramNames.length;
+               classReport.aggregateReport.paramCount += newScope.paramNames.length;
             }
 
             if (Number.isInteger(newScope.postLloc))
             {
-               moduleReport.aggregateMethodReport.sloc.logical += newScope.postLloc;
-               if (classReport) { classReport.aggregateMethodReport.sloc.logical += newScope.postLloc; }
+               moduleReport.aggregateReport.sloc.logical += newScope.postLloc;
+               if (classReport) { classReport.aggregateReport.sloc.logical += newScope.postLloc; }
                if (methodReport) { methodReport.sloc.logical += newScope.postLloc; }
             }
             break;
@@ -189,9 +189,9 @@ export default class ModuleMetricProcess
       const currentClassReport = scopeControl.getCurrentClassReport();
       const currentMethodReport = scopeControl.getCurrentMethodReport();
 
-      moduleReport.methodAggregate.cyclomatic += amount;
+      moduleReport.aggregate.cyclomatic += amount;
 
-      if (currentClassReport) { currentClassReport.methodAggregate.cyclomatic += amount; }
+      if (currentClassReport) { currentClassReport.aggregate.cyclomatic += amount; }
       if (currentMethodReport) { currentMethodReport.cyclomatic += amount; }
    }
 
@@ -208,9 +208,9 @@ export default class ModuleMetricProcess
       const currentClassReport = scopeControl.getCurrentClassReport();
       const currentMethodReport = scopeControl.getCurrentMethodReport();
 
-      moduleReport.methodAggregate.sloc.logical += amount;
+      moduleReport.aggregate.sloc.logical += amount;
 
-      if (currentClassReport) { currentClassReport.methodAggregate.sloc.logical += amount; }
+      if (currentClassReport) { currentClassReport.aggregate.sloc.logical += amount; }
       if (currentMethodReport)
       {
 // if (amount > 0)
@@ -232,14 +232,14 @@ export default class ModuleMetricProcess
    static incrementHalsteadItems(report, metric, identifier)
    {
       // Increments the associated aggregate report HalsteadData for distinct identifiers.
-      if (report.aggregateMethodReport.halstead[metric].identifiers.indexOf(identifier) === -1)
+      if (report.aggregateReport.halstead[metric].identifiers.indexOf(identifier) === -1)
       {
-         report.aggregateMethodReport.halstead[metric].identifiers.push(identifier);
-         report.aggregateMethodReport.halstead[metric]['distinct'] += 1;
+         report.aggregateReport.halstead[metric].identifiers.push(identifier);
+         report.aggregateReport.halstead[metric]['distinct'] += 1;
       }
 
       // Increment total halstead items
-      report.aggregateMethodReport.halstead[metric]['total'] += 1;
+      report.aggregateReport.halstead[metric]['total'] += 1;
    }
 
    /**
