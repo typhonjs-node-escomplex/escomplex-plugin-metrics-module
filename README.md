@@ -8,6 +8,6 @@
 
 [![Build Status](https://travis-ci.org/typhonjs-node-escomplex/escomplex-plugin-metrics-module.svg?branch=master)](https://travis-ci.org/typhonjs-node-escomplex/escomplex-plugin-metrics-module)
 [![Coverage](https://img.shields.io/codecov/c/github/typhonjs-node-escomplex/escomplex-plugin-metrics-module.svg)](https://codecov.io/github/typhonjs-node-escomplex/escomplex-plugin-metrics-module)
-[![Dependency Status](https://www.versioneye.com/user/projects/575e41b87757a0003bd4c2d4/badge.svg?style=flat)](https://www.versioneye.com/user/projects/575e41b87757a0003bd4c2d4)
+[![Dependency Status](https://david-dm.org/typhonjs-node-escomplex/escomplex-plugin-metrics-module/status.svg)](https://david-dm.org/typhonjs-node-escomplex/escomplex-plugin-metrics-module)
 
 Provides the core module metric / report generation plugin for typhonjs-escomplex module processing.
