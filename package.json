@@ -1,12 +1,12 @@
 {
   "name": "escomplex-plugin-metrics-module",
-  "version": "0.0.13",
+  "version": "0.1.0",
   "homepage": "https://github.com/typhonjs-node-escomplex/escomplex-plugin-metrics-module/",
   "description": "Provides the core module metric / report generation plugin for typhonjs-escomplex module processing.",
   "license": "MPL-2.0",
   "main": "./dist/PluginMetricsModule",
   "author": {
-    "name": "Mike Leahy"
+    "name": "Michael Leahy"
   },
   "repository": {
     "type": "git",
@@ -14,17 +14,17 @@
   },
   "maintainers": [
     {
-      "name": "Mike Leahy",
+      "name": "Michael Leahy",
       "email": "support@typhonjs.io",
       "url": "https://github.com/typhonrt"
     }
   ],
   "dependencies": {
-    "typhonjs-escomplex-commons": "^0.0.16"
+    "typhonjs-escomplex-commons": "^0.1.0"
   },
   "devDependencies": {
-    "escomplex-plugin-syntax-babylon": "^0.0.13",
-    "typhonjs-ast-walker": "^0.1.0",
+    "escomplex-plugin-syntax-babylon": "^0.1.0",
+    "typhonjs-ast-walker": "^0.2.0",
     "typhonjs-config-eslint": "^0.5.0",
     "typhonjs-npm-build-test": "^0.7.0"
   },
@@ -35,7 +35,6 @@
     "prepublish": "babel-node ./node_modules/typhonjs-npm-scripts-publish/scripts/prepublish.js",
     "test": "babel-node ./node_modules/typhonjs-npm-scripts-test-mocha/scripts/mocha.js",
     "test-coverage": "babel-node ./node_modules/typhonjs-npm-scripts-test-mocha/scripts/mocha-istanbul.js",
-
     "dev-test": "BABEL_ENV=escomplex-dev babel-node ./node_modules/typhonjs-npm-scripts-test-mocha/scripts/mocha.js dev_test",
     "dev-test-coverage": "BABEL_ENV=escomplex-dev babel-node ./node_modules/typhonjs-npm-scripts-test-mocha/scripts/mocha-istanbul.js dev_test"
   },
