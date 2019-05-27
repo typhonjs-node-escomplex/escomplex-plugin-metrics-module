@@ -68,7 +68,7 @@ export default class ModuleMetricPostAverage
       report.maintainability =
        171
        - (3.42 * Math.log(averageEffort))
-       - (0.23 * averageCyclomatic === 0 ? 0 : Math.log(averageCyclomatic))
+       - (0.23 * (averageCyclomatic === 0 ? 0 : Math.log(averageCyclomatic)))
        - (16.2 * Math.log(averageLoc));
 
       /* istanbul ignore if */
